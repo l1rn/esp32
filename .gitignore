@@ -1,0 +1,17 @@
+build/
+sdkconfig
+sdkconfig.defaults*
+dependencies.lock
+managed_components/
+
+*.swp
+*.swo
+*#
+.#*
+
+*.bin
+*.elf
+*.map
+*.lst
+*.lss
+*.sym
