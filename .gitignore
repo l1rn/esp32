@@ -1,4 +1,5 @@
 build/
+.vscode/
 sdkconfig
 sdkconfig.defaults*
 dependencies.lock
@@ -15,3 +16,5 @@ managed_components/
 *.lst
 *.lss
 *.sym
+
+main/Kconfig*

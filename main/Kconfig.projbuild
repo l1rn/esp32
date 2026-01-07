@@ -47,3 +47,17 @@ menu "Example Configuration"
             Define the blinking period in milliseconds.
 
 endmenu
+
+menu "Wi-Fi Configuration"
+	config WIFI_SSID
+		string "Wi-Fi SSID"
+		default "RouteRich_2"
+		help
+			SSID (network name) to connect to
+
+	config WIFI_PASSWORD
+		string "Wi-Fi Password"
+		default "Aleks1977"
+		help 
+			SSID password (WPA or WPA2)
+endmenu
