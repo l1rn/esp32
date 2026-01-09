@@ -1,3 +1,6 @@
+main/Kconfig.*
+main/Kconfig
+
 build/
 .vscode/
 sdkconfig
@@ -17,4 +20,3 @@ managed_components/
 *.lss
 *.sym
 
-main/Kconfig*
