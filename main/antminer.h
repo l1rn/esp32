@@ -15,11 +15,11 @@ typedef struct {
 	char username[8];
 	char password[8];
 	char realm[64];
-	char none[64];
+	char nonce[64];
 	char uri[128];
 	char response[64];
 	char qop[16];
-	char np[16];
+	char nc[16];
 	char cnonce[32];
 } digest_auth_t;
 
