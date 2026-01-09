@@ -81,7 +81,8 @@ static int parse_auth_header(const char *header, digest_auth_t *auth){
 	}
 
 	snprintf(auth->cnonce, sizeof(auth->cnonce), "%08lx", esp_random());
-	strcpy(auth->nc, "00000001");
+	static uint32_t nc_counter = 1;
+	snprintf(auth->nc, sizeof(auth->nc), "%08x", nc_counter++);
 
 	return 0;
 }
@@ -91,7 +92,7 @@ static void create_digest_header(digest_auth_t *auth, const char *uri){
 	generate_digest_response(auth);
 
 	snprintf(auth_header, sizeof(auth_header),
-			"Digest=username=\"%s\", realm=\"%s\", "
+			"Digest u``sername=\"%s\", realm=\"%s\", "
 			"nonce=\"%s\", uri=\"%s\", response=\"%s\", "
 			"qop=%s, nc=%s, cnonce=\"%s\"", 
 			auth->username, auth->realm, auth->nonce, auth->uri,
@@ -104,9 +105,32 @@ esp_err_t antminer_init(const char *ip, const char *user, const char *pass) {
 	if(ip) snprintf(miner_ip, sizeof(miner_ip), "%s", ip);
 
 	strncpy(auth.username, user ? user : "root", sizeof(auth.username - 1));
+	auth.username[sizeof(auth.usename) - 1] = 0;
 	strncpy(auth.password, pass ? pass : "root", sizeof(auth.password - 1));
+	auth.password[sizeof(auth.password) - 1] = 0;
 
 	ESP_LOGI(TAG, "Antminer IP: %s, User: %s", miner_ip, auth.username);
+	return ESP_OK;
+}
+
+static void parse_digest_challenge(const char *h){
+	sscanf(strstr(h, "realm=\"") + 7, "%63[^\"]", auth.realm);
+	sscanf(strstr(h, "nonce=\"") + 7, "%63[^\"]", auth.nonce);
+
+	if(strstr(h, "qop=\"auth\"")) {
+		strcpy(auth.qop, "auth");
+	}
+	ESP_LOGI(TAG, "Parsed realm=%s nonce=%s qop=%s",
+             auth.realm, auth.nonce, auth.qop);
+}
+
+static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
+	if(evt->event_id == HTTP_EVENT_ON_HEADER){
+		if(strcasecmp(evt->header_key, "WWW-Authenticate") == 0){
+			ESP_LOGI(TAG, "Auth header: %s", evt->header_value);
+			parse_digest_challenge(evt->header_value);
+		}
+	}
 	return ESP_OK;
 }
 
@@ -117,25 +141,18 @@ static esp_err_t get_auth_challenge(void){
 	esp_http_client_config_t config = {
 	    	.url = url,
     		.timeout_ms = 5000,
+		.disable_auto_redirect = true,
+		.event_handler = http_event_handler,
 	};
 
 
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	esp_err_t err = esp_http_client_perform(client);
-
-	if(err == ESP_OK){
-		int status = esp_http_client_get_status_code(client);
-		if(status == 401) {
-			char *auth_hdr = NULL;
-			esp_err_t err = esp_http_client_get_header(client, "WWW-Authenticate", &auth_hdr);
-			if(auth_hdr && err == ESP_OK){
-				ESP_LOGI(TAG, "Auth header: %s", auth_hdr);
-				if(parse_auth_header(auth_hdr, &auth) == 0){
-					ESP_LOGI(TAG, "Parsed: realm=%s, nonce=%s", auth.realm, auth.nonce);
-				}
-			}
-		}
-	}
+	int status = esp_http_client_get_status_code(client);
+	if (status != 401) {
+    		ESP_LOGE(TAG, "Expected 401, got %d", status);
+    		return ESP_FAIL;
+	
 
 	esp_http_client_cleanup(client);
 	if(strlen(auth.nonce) == 0 || strlen(auth.realm) == 0){
@@ -154,7 +171,7 @@ esp_err_t antminer_get_data(antminer_data_t *data){
 	}
 	
 	char url[128];
-	snprintf(url, sizeof(url), "http://%s/cgi-bin/stats.cpi", miner_ip);
+	snprintf(url, sizeof(url), "http://%s/cgi-bin/stats.cgi", miner_ip);
 	
 	create_digest_header(&auth, "/cgi-bin/stats.cgi");
 
