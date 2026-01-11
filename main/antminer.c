@@ -36,7 +36,7 @@ static void generate_digest_response(digest_auth_t *auth){
 
 	char ha2[33];
 	char ha2_input[256];
-	snprintf(ha2_input, sizeof(ha2_input), "GET:%s", auth->uri);
+        snprintf(ha2_input, sizeof(ha2_input), "GET:%s", auth->uri);
 	md5_hash(ha2_input, ha2);
 
 	char response_input[512];
@@ -81,8 +81,6 @@ static int parse_auth_header(const char *header, digest_auth_t *auth){
 	}
 
 	snprintf(auth->cnonce, sizeof(auth->cnonce), "%08lx", esp_random());
-	static uint32_t nc_counter = 1;
-	snprintf(auth->nc, sizeof(auth->nc), "%08x", nc_counter++);
 
 	return 0;
 }
@@ -105,7 +103,7 @@ esp_err_t antminer_init(const char *ip, const char *user, const char *pass) {
 	if(ip) snprintf(miner_ip, sizeof(miner_ip), "%s", ip);
 
 	strncpy(auth.username, user ? user : "root", sizeof(auth.username - 1));
-	auth.username[sizeof(auth.usename) - 1] = 0;
+	auth.username[sizeof(auth.username) - 1] = 0;
 	strncpy(auth.password, pass ? pass : "root", sizeof(auth.password - 1));
 	auth.password[sizeof(auth.password) - 1] = 0;
 
@@ -134,41 +132,66 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
 	return ESP_OK;
 }
 
-static esp_err_t get_auth_challenge(void){
-	char url[128];
-	snprintf(url, sizeof(url), "http://%s/cgi-bin/stats.cgi", miner_ip);
+static esp_err_t get_auth_challenge(void)
+{
+    char url[128];
+    snprintf(url, sizeof(url), "http://%s/cgi-bin/stats.cgi", miner_ip);
 
-	esp_http_client_config_t config = {
-	    	.url = url,
-    		.timeout_ms = 5000,
-		.disable_auto_redirect = true,
-		.event_handler = http_event_handler,
-	};
+    esp_http_client_config_t config = {
+        .url = url,
+        .timeout_ms = 5000,
+        .disable_auto_redirect = true,
+    };
 
+    esp_http_client_handle_t client = esp_http_client_init(&config);
 
-	esp_http_client_handle_t client = esp_http_client_init(&config);
-	esp_err_t err = esp_http_client_perform(client);
-	int status = esp_http_client_get_status_code(client);
-	if (status != 401) {
-    		ESP_LOGE(TAG, "Expected 401, got %d", status);
-    		return ESP_FAIL;
-	
+    esp_err_t err = esp_http_client_perform(client);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "HTTP perform failed: %s", esp_err_to_name(err));
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
 
-	esp_http_client_cleanup(client);
-	if(strlen(auth.nonce) == 0 || strlen(auth.realm) == 0){
-		return ESP_FAIL;
-	}
-	return err;
+    int status = esp_http_client_get_status_code(client);
+    if (status != 401) {
+        ESP_LOGE(TAG, "Expected 401, got %d", status);
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    char *auth_hdr = NULL;
+    err = esp_http_client_get_header(client, "WWW-Authenticate", &auth_hdr);
+    if (err != ESP_OK || auth_hdr == NULL) {
+        ESP_LOGE(TAG, "WWW-Authenticate header missing");
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Auth header: %s", auth_hdr);
+
+    if (parse_auth_header(auth_hdr, &auth) != 0) {
+        ESP_LOGE(TAG, "Failed to parse auth header");
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    esp_http_client_cleanup(client);
+
+    if (strlen(auth.realm) == 0 || strlen(auth.nonce) == 0) {
+        ESP_LOGE(TAG, "Invalid digest parameters");
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
 }
 
+
 esp_err_t antminer_get_data(antminer_data_t *data){
-	if(strlen(auth.nonce) == 0){
-		ESP_LOGI(TAG, "Getting auth challenge...");
-		if(get_auth_challenge() != ESP_OK){
-			ESP_LOGE(TAG, "Auth challenge failed (network not ready?)");
-			return ESP_FAIL;
-		}
-	}
+	if (strlen(auth.realm) == 0 || strlen(auth.nonce) == 0) {
+            ESP_LOGE(TAG, "Digest auth not initialized");
+            return ESP_FAIL;
+        }
+
 	
 	char url[128];
 	snprintf(url, sizeof(url), "http://%s/cgi-bin/stats.cgi", miner_ip);

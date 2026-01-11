@@ -1,10 +1,12 @@
 #include <stdio.h>
-#include "wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+
 #include "antminer.h"
+#include "weather.h"
+#include "wifi.h"
 
 #define LED_PIN 2
 
@@ -24,15 +26,8 @@ void app_main(void) {
 	ESP_LOGI(TAG, "Wifi connected!");
 	gpio_set_level(LED_PIN, 1);
 	
-	antminer_init("192.168.1.129", "root", "root");
-	antminer_data_t data;
 	while(1) {
-		esp_err_t err = antminer_get_data(&data);
-		if(err == ESP_OK) {
-			ESP_LOGI(TAG, "Antminer data received!");
-		} else {
-			ESP_LOGE(TAG, "Antminer request failed: %s", esp_err_to_name(err));
-		}
+		get_weather();
 		vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
