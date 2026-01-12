@@ -1,8 +1,12 @@
 #include <stdio.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "mqtt_client.h"
+#include "esp_event.h"
+#include "esp_netif.h"
 
 #include "antminer.h"
 #include "weather.h"
@@ -11,6 +15,7 @@
 #define LED_PIN 2
 
 static const char *TAG = "MAIN";
+
 
 void app_main(void) {
 	gpio_reset_pin(LED_PIN);
@@ -26,10 +31,10 @@ void app_main(void) {
 	ESP_LOGI(TAG, "Wifi connected!");
 	gpio_set_level(LED_PIN, 1);
 	
+	mqtt_antminer_start();
 	while(1) {
 		get_weather_current();
 
-		//antminer_get_data();
 		vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }

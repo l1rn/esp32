@@ -88,9 +88,8 @@ void get_weather_current(void){
 				ESP_LOGI(TAG, "temp: %f, feels like: %f, wind speed: %f", 
 					temp->valuedouble, feels_like->valuedouble, wind_speed->valuedouble);
 			}
+			cJSON_Delete(json);
 		}
-
-		cJSON_Delete(json);
 	}
 	esp_http_client_cleanup(client);
 	free(response.data);
