@@ -27,7 +27,9 @@ void app_main(void) {
 	gpio_set_level(LED_PIN, 1);
 	
 	while(1) {
-		get_weather();
+		get_weather_current();
+
+		//antminer_get_data();
 		vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }

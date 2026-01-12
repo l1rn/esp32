@@ -1,16 +1,18 @@
-#include "antminer.h"
-#include "esp_http_client.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "lwip/sockets.h"
 #include "esp_log.h"
-#include "cJSON.h"
-#include <string.h>
 #include "mbedtls/md.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 static const char *TAG = "ANTMINER";
-static char miner_ip[16] = "192.168.1.129";
-static digest_auth_t auth;
-static char auth_header[512] = "";
+#define BUFFER_SIZE 1024
+#define REQ_BUFFER_SIZE 1024
 
-static void md5_hash(const char *input, char output[33]){
+// Compute MD5 hash as hex
+static void md5_hex(const char *input, char *output) {
 	unsigned char digest[16];
 	mbedtls_md_context_t ctx;
 	mbedtls_md_type_t md_type = MBEDTLS_MD_MD5;
@@ -27,213 +29,141 @@ static void md5_hash(const char *input, char output[33]){
 	output[32] = 0;
 }
 
-static void generate_digest_response(digest_auth_t *auth){
-	char ha1[33];
-	char ha1_input[256];
-	snprintf(ha1_input, sizeof(ha1_input), "%s:%s:%s",
-			auth->username, auth->realm, auth->password);
-	md5_hash(ha1_input, ha1);
-
-	char ha2[33];
-	char ha2_input[256];
-        snprintf(ha2_input, sizeof(ha2_input), "GET:%s", auth->uri);
-	md5_hash(ha2_input, ha2);
-
-	char response_input[512];
-	snprintf(response_input, sizeof(response_input), "%s:%s:%s:%s:%s:%s",
-			ha1, auth->nonce, auth->nc, auth->cnonce, auth->qop, ha2);
-	md5_hash(response_input, auth->response);
+// Extract a value from WWW-Authenticate header
+static void extract_value(const char *header, const char *key, char *out, size_t out_len) {
+    char *start = strstr(header, key);
+    if (!start) {
+        out[0] = '\0';
+        return;
+    }
+    start += strlen(key) + 2; // skip key and =" 
+    char *end = strchr(start, '"');
+    if (!end) {
+        out[0] = '\0';
+        return;
+    }
+    size_t len = end - start;
+    if (len >= out_len) len = out_len - 1;
+    strncpy(out, start, len);
+    out[len] = '\0';
 }
 
-static int parse_auth_header(const char *header, digest_auth_t *auth){
-	char *realm_start = strstr(header, "realm=\"");
-	char *nonce_start = strstr(header, "nonce=\"");
-	char *qop_start	  = strstr(header, "qop=\"");
+// Compute Digest header
+static void build_digest_header(
+    const char *username,
+    const char *password,
+    const char *realm,
+    const char *nonce,
+    const char *uri,
+    const char *method,
+    const char *cnonce,
+    int nc,
+    char *out_header,
+    size_t out_len
+) {
+    char HA1[33], HA2[33], response[33], nc_str[9], tmp[256];
+    snprintf(tmp, sizeof(tmp), "%s:%s:%s", username, realm, password);
+    md5_hex(tmp, HA1);
+    snprintf(tmp, sizeof(tmp), "%s:%s", method, uri);
+    md5_hex(tmp, HA2);
 
-	if(!realm_start || !nonce_start) return -1;
+    snprintf(nc_str, sizeof(nc_str), "%08x", nc);
+    snprintf(tmp, sizeof(tmp), "%s:%s:%s:%s:auth:%s", HA1, nonce, nc_str, cnonce, HA2);
+    md5_hex(tmp, response);
 
-	realm_start += 7;
-	char *realm_end = strchr(realm_start, '"');
-	if(realm_end){
-		int len = realm_end - realm_start;
-		strncpy(auth->realm, realm_start, len);
-		auth->realm[len] = 0;
-	}
-
-	nonce_start += 7;
-	char *nonce_end = strchr(nonce_start, '"');
-	if(nonce_end){
-		int len = nonce_end - nonce_start;
-		strncpy(auth->nonce, nonce_start, len);
-		auth->nonce[len] = 0;
-	}
-	
-	if(qop_start){
-		qop_start += 5;
-		char *qop_end = strchr(qop_start, '"');
-		if(qop_end){
-			int len = qop_end - qop_start;
-			strncpy(auth->qop, qop_start, len);
-			auth->qop[len] = 0;
-		}
-	} else {
-		strcpy(auth->qop, "auth");
-	}
-
-	snprintf(auth->cnonce, sizeof(auth->cnonce), "%08lx", esp_random());
-
-	return 0;
+    snprintf(out_header, out_len,
+             "Authorization: Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", qop=auth, nc=%s, cnonce=\"%s\", response=\"%s\"\r\n",
+             username, realm, nonce, uri, nc_str, cnonce, response);
 }
 
-static void create_digest_header(digest_auth_t *auth, const char *uri){
-	strcpy(auth->uri, uri);
-	generate_digest_response(auth);
+void antminer_get_data(void) {
+    const char *host = "192.168.1.129";
+    const int port = 80;
+    const char *uri = "/cgi-bin/stats.cgi";
+    const char *username = "root";
+    const char *password = "root";
 
-	snprintf(auth_header, sizeof(auth_header),
-			"Digest u``sername=\"%s\", realm=\"%s\", "
-			"nonce=\"%s\", uri=\"%s\", response=\"%s\", "
-			"qop=%s, nc=%s, cnonce=\"%s\"", 
-			auth->username, auth->realm, auth->nonce, auth->uri,
-			auth->response, auth->qop, auth->nc, auth->cnonce);
-
-	ESP_LOGI(TAG, "Digest header created for URI: %s", uri);
-}
-
-esp_err_t antminer_init(const char *ip, const char *user, const char *pass) {
-	if(ip) snprintf(miner_ip, sizeof(miner_ip), "%s", ip);
-
-	strncpy(auth.username, user ? user : "root", sizeof(auth.username - 1));
-	auth.username[sizeof(auth.username) - 1] = 0;
-	strncpy(auth.password, pass ? pass : "root", sizeof(auth.password - 1));
-	auth.password[sizeof(auth.password) - 1] = 0;
-
-	ESP_LOGI(TAG, "Antminer IP: %s, User: %s", miner_ip, auth.username);
-	return ESP_OK;
-}
-
-static void parse_digest_challenge(const char *h){
-	sscanf(strstr(h, "realm=\"") + 7, "%63[^\"]", auth.realm);
-	sscanf(strstr(h, "nonce=\"") + 7, "%63[^\"]", auth.nonce);
-
-	if(strstr(h, "qop=\"auth\"")) {
-		strcpy(auth.qop, "auth");
-	}
-	ESP_LOGI(TAG, "Parsed realm=%s nonce=%s qop=%s",
-             auth.realm, auth.nonce, auth.qop);
-}
-
-static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
-	if(evt->event_id == HTTP_EVENT_ON_HEADER){
-		if(strcasecmp(evt->header_key, "WWW-Authenticate") == 0){
-			ESP_LOGI(TAG, "Auth header: %s", evt->header_value);
-			parse_digest_challenge(evt->header_value);
-		}
-	}
-	return ESP_OK;
-}
-
-static esp_err_t get_auth_challenge(void)
-{
-    char url[128];
-    snprintf(url, sizeof(url), "http://%s/cgi-bin/stats.cgi", miner_ip);
-
-    esp_http_client_config_t config = {
-        .url = url,
-        .timeout_ms = 5000,
-        .disable_auto_redirect = true,
-    };
-
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    esp_err_t err = esp_http_client_perform(client);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "HTTP perform failed: %s", esp_err_to_name(err));
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Failed to create socket");
+        return;
     }
 
-    int status = esp_http_client_get_status_code(client);
-    if (status != 401) {
-        ESP_LOGE(TAG, "Expected 401, got %d", status);
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    inet_pton(AF_INET, host, &server_addr.sin_addr.s_addr);
+
+    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) != 0) {
+        ESP_LOGE(TAG, "Connection failed");
+        close(sock);
+        return;
     }
 
-    char *auth_hdr = NULL;
-    err = esp_http_client_get_header(client, "WWW-Authenticate", &auth_hdr);
-    if (err != ESP_OK || auth_hdr == NULL) {
-        ESP_LOGE(TAG, "WWW-Authenticate header missing");
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
+    // Step 1: Send initial request without Authorization
+    char req[REQ_BUFFER_SIZE];
+    snprintf(req, sizeof(req),
+             "GET %s HTTP/1.1\r\n"
+             "Host: %s\r\n"
+             "Connection: close\r\n"
+             "\r\n",
+             uri, host);
+
+    send(sock, req, strlen(req), 0);
+
+    char buf[BUFFER_SIZE];
+    int len = recv(sock, buf, sizeof(buf)-1, 0);
+    if (len <= 0) {
+        ESP_LOGE(TAG, "No response");
+        close(sock);
+        return;
+    }
+    buf[len] = '\0';
+
+    // Step 2: Extract realm and nonce
+    char realm[128], nonce[128];
+    extract_value(buf, "realm", realm, sizeof(realm));
+    extract_value(buf, "nonce", nonce, sizeof(nonce));
+    ESP_LOGI(TAG, "realm=%s nonce=%s", realm, nonce);
+
+    close(sock);
+
+    // Step 3: Reconnect for authenticated request
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
+
+    char cnonce[] = "abcdef1234567890"; // can be random
+    char auth_header[512];
+    build_digest_header(username, password, realm, nonce, uri, "GET", cnonce, 1, auth_header, sizeof(auth_header));
+
+    char line[256];
+
+    // Request line
+    snprintf(line, sizeof(line), "GET %s HTTP/1.1\r\n", uri);
+    send(sock, line, strlen(line), 0);
+
+    // Host header
+    snprintf(line, sizeof(line), "Host: %s\r\n", host);
+    send(sock, line, strlen(line), 0);
+
+    // Connection header
+    send(sock, "Connection: close\r\n", strlen("Connection: close\r\n"), 0);
+
+    // Authorization header
+    send(sock, auth_header, strlen(auth_header), 0);
+
+    // End of headers
+    send(sock, "\r\n", 2, 0);
+
+    send(sock, req, strlen(req), 0);
+    len = recv(sock, buf, sizeof(buf)-1, 0);
+    if (len > 0) {
+        buf[len] = '\0';
+        ESP_LOGI(TAG, "Response:\n%s", buf);
+    } else {
+        ESP_LOGE(TAG, "No response on authenticated request");
     }
 
-    ESP_LOGI(TAG, "Auth header: %s", auth_hdr);
-
-    if (parse_auth_header(auth_hdr, &auth) != 0) {
-        ESP_LOGE(TAG, "Failed to parse auth header");
-        esp_http_client_cleanup(client);
-        return ESP_FAIL;
-    }
-
-    esp_http_client_cleanup(client);
-
-    if (strlen(auth.realm) == 0 || strlen(auth.nonce) == 0) {
-        ESP_LOGE(TAG, "Invalid digest parameters");
-        return ESP_FAIL;
-    }
-
-    return ESP_OK;
+    close(sock);
 }
 
-
-esp_err_t antminer_get_data(antminer_data_t *data){
-	if (strlen(auth.realm) == 0 || strlen(auth.nonce) == 0) {
-            ESP_LOGE(TAG, "Digest auth not initialized");
-            return ESP_FAIL;
-        }
-
-	
-	char url[128];
-	snprintf(url, sizeof(url), "http://%s/cgi-bin/stats.cgi", miner_ip);
-	
-	create_digest_header(&auth, "/cgi-bin/stats.cgi");
-
-
-	esp_http_client_config_t config = {
-		.url = url,
-		.timeout_ms = 5000,
-	};
-
-	esp_http_client_handle_t client = esp_http_client_init(&config);
-	
-	esp_http_client_set_header(client, "Authorization", auth_header);
-
-	esp_err_t err = esp_http_client_perform(client);
-
-	if(err == ESP_OK){
-		int status = esp_http_client_get_status_code(client);
-		ESP_LOGI(TAG, "HTTP Status: %d", status);
-		if(status == 200){
-			char buffer[4096];
-			int len = esp_http_client_read(client, buffer, sizeof(buffer) - 1);
-			if(len > 0){
-				buffer[len] = 0;
-			} else {
-				ESP_LOGE(TAG, "HTTP read failed, len=%d", len);
-				esp_http_client_cleanup(client);
-				return ESP_FAIL;
-			}
-			
-			cJSON *root = cJSON_Parse(buffer);
-			if(root){
-				cJSON *STATS = cJSON_GetObjectItem(root, "STATS");
-
-				cJSON_Delete(root);
-			}
-
-		}
-	}
-
-	esp_http_client_cleanup(client);
-	return err;
-}
