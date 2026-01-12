@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "esp_http_client.h"
 #include "esp_event.h"
@@ -32,6 +33,16 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt){
 	return ESP_OK;
 }
 
+void format_date_dd_mm(const char *input, char *output, size_t out_size){
+	struct tm tm = {0};
+
+	if(strptime(input, "%Y-%m-%d %H:%M:%S", &tm) == NULL){
+		return;
+	}
+
+	strftime(output, out_size, "%d-%b", &tm);
+}
+
 void get_weather(void){
 	http_response_t response = {
 		.data = NULL,
@@ -42,7 +53,7 @@ void get_weather(void){
 	snprintf(
 			url, 
 			sizeof(url), 
-			"http://api.openweathermap.org/data/2.5/weather?q=%s&units=metric&appid=%s", 
+			"http://api.openweathermap.org/data/2.5/forecast?q=%s&units=metric&cnt=5&appid=%s", 
 			CONFIG_WEATHER_CITY,
 			CONFIG_WEATHER_API_KEY
 		);
@@ -60,18 +71,38 @@ void get_weather(void){
 		if(json == NULL){
 			printf("Error parsing JSON");
 		} else {
-			cJSON *name 	= cJSON_GetObjectItem(json, "name");
-			cJSON *main_obj = cJSON_GetObjectItem(json, "main");
-			cJSON *temp	= cJSON_GetObjectItem(main_obj, "temp");
+			cJSON *city_obj	= cJSON_GetObjectItem(json, "city");
+			cJSON *list_obj = cJSON_GetObjectItem(city_obj, "list");
+			int size = cJSON_GetArraySize(list_obj);
+			for(int i = 0; i < size; i++){
+				cJSON *list = cJSON_GetArrayItem(list_obj, i);
 
-			if(cJSON_IsString(name) && cJSON_IsNumber(temp)){
-				ESP_LOGI(TAG, "City: %s, Temp: %f\n", name->valuestring, temp->valuedouble);
+				cJSON *date_txt = cJSON_GetObjectItem(list, "dt_txt");
+				cJSON *main_obj = cJSON_GetObjectItem(list, "main");
+				cJSON *weather_obj = cJSON_GetObjectItem(list, "weather");
+				cJSON *weather = cJSON_GetArrayItem(weather_obj, 0);
+				cJSON *wind_obj = cJSON_GetObjectItem(list, "wind");
+				
+				cJSON *temp = cJSON_GetObjectItem(main_obj, "temp");
+				cJSON *feels_like = cJSON_GetObjectItem(main_obj, "feels_like");
+				
+				cJSON *weather_txt = cJSON_GetObjectItem(weather, "main");
+				cJSON *wind_speed = cJSON_GetObjectItem(wind_obj, "speed");			
+
+				char date_buf[16];
+				format_date_dd_mm(date_txt->valuestring, date_buf, sizeof(date_buf));
+				ESP_LOGI(TAG, "temp: %f\n", temp->valuedouble);
+				ESP_LOGI(TAG, "feels like: %f\n", feels_like->valuedouble);
+				ESP_LOGI(TAG, "wind speed: %f\n", wind_speed->valuedouble);
+				ESP_LOGI(TAG, "date: %s", date_buf);
+
+				if(cJSON_IsNumber(temp) && cJSON_IsNumber(feels_like)
+						&& cJSON_IsString(weather_txt) && cJSON_IsNumber(wind_speed)){
 			}
-
+			}
 			cJSON_Delete(json);
 		}
 	}
 	esp_http_client_cleanup(client);
 	free(response.data);
 }
-
