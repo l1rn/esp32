@@ -8,6 +8,8 @@ static esp_mqtt_client_handle_t client = NULL;
 
 static void parse_antminer_json(const char *root){
 	cJSON *json = cJSON_Parse(root);
+	char *json_str = cJSON_Print(json);
+	ESP_LOGI(TAG, "%s\n", json_str);
 	if(json != NULL){
 		cJSON *stats = cJSON_GetObjectItem(json, "STATS");
 		cJSON *first = cJSON_GetArrayItem(stats, 0);

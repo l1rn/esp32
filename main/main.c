@@ -7,34 +7,46 @@
 #include "mqtt_client.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "driver/i2c_master.h"
 
 #include "antminer.h"
 #include "weather.h"
 #include "wifi.h"
+#include "i2c_display.h"
 
 #define LED_PIN 2
 
-static const char *TAG = "MAIN";
 
+static const char *TAG = "MAIN";
 
 void app_main(void) {
 	gpio_reset_pin(LED_PIN);
 	gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
 	
-	wifi_init();
-	while(!wifi_is_connected()){
-		ESP_LOGI(TAG, "Waiting for Wifi...");
-		gpio_set_level(LED_PIN, 0);
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
-	}
 
-	ESP_LOGI(TAG, "Wifi connected!");
+//	wifi_init();
+//	while(!wifi_is_connected()){
+//		ESP_LOGI(TAG, "Waiting for Wifi...");
+///		gpio_set_level(LED_PIN, 0);
+//		vTaskDelay(1000 / portTICK_PERIOD_MS);
+//	}
+
+//	ESP_LOGI(TAG, "Wifi connected!");
 	gpio_set_level(LED_PIN, 1);
-	
-	mqtt_antminer_start();
-	while(1) {
-		get_weather_current();
 
-		vTaskDelay(pdMS_TO_TICKS(5000));
+	ESP_LOGI(TAG, "i2c scanner running...");
+	i2c_master_bus_handle_t bus;
+	i2c_master_init(&bus);
+	// mqtt_antminer_start();
+	scan_i2c(bus);
+	i2c_del_master_bus(bus);
+	while(1){
+		vTaskDelay(1000);
 	}
+//	while(1) {
+//		get_weather_current();
+
+//		vTaskDelay(pdMS_TO_TICKS(5000));
+//	}
+
 }
