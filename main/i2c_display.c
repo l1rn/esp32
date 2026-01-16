@@ -1,58 +1,99 @@
 #include "esp_log.h"
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c_master.h"
 
-#define I2C_MASTER_SCL_IO	22
-#define I2C_MASTER_SDA_IO	21
-#define I2C_MASTER_NUM		I2C_NUM_0
-#define I2C_MASTER_FREQ_HZ	100000
-#define OLED_ADDR		0x3C
+#define SCL_IO	22
+#define SDA_IO	21
+#define OLED_ADDR 0x3C
 
 static const char *TAG = "OLED DISPLAY"; 
 
-void i2c_master_init(i2c_master_bus_handle_t *bus) {
-	i2c_master_bus_config_t cfg = {
-		.clk_source = I2C_CLK_SRC_DEFAULT,
-		.i2c_port = 0,
-		.scl_io_num = I2C_MASTER_SCL_IO,
-		.sda_io_num = I2C_MASTER_SDA_IO,
-		.glitch_ignore_cnt = 7,
-		.flags.enable_internal_pullup = true,
-	};
-	i2c_new_master_bus(&cfg, bus);
+int check_gpio_pins(void) {
+	printf("d21 & d22 (sda & scl) checking...");
+	
+	gpio_set_direction(SCL_IO, GPIO_MODE_INPUT);
+	gpio_set_direction(SDA_IO, GPIO_MODE_INPUT);
 
-	ESP_LOGI(TAG, "i2c initialized.");
-}
+	vTaskDelay(100 / portTICK_PERIOD_MS);
 
-uint8_t check_addr(i2c_master_bus_handle_t bus, uint8_t addr){
-	i2c_device_config_t dev_cfg = {
-		.dev_addr_length = I2C_ADDR_BIT_LEN_7,
-		.device_address = addr,
-		.scl_speed_hz = 100000,
-	};
+	int sda_level = gpio_get_level(SDA_IO);
+	int scl_level = gpio_get_level(SCL_IO);
 
-	i2c_master_dev_handle_t dev;
-	if(i2c_master_bus_add_device(bus, &dev_cfg, &dev) != ESP_OK){
+	ESP_LOGI(TAG, "sda (gpi0%d): %s", SDA_IO, sda_level ? "HIGH" : "LOW");
+	ESP_LOGI(TAG, "scl (gpi0%d): %s", SCL_IO, scl_level ? "HIGH" : "LOW");
+
+	if(sda_level == 0 || scl_level == 0){
+		ESP_LOGW(TAG, "One of those wires are not connected! Can't proceed further");
 		return 0;
 	}
-
-	uint8_t dummy = 0;
-	esp_err_t res = i2c_master_transmit(dev, &dummy, 0, 100);
-	
-	i2c_master_bus_rm_device(dev);
-	return (res == ESP_OK) ? 1 : 0;
+	ESP_LOGI(TAG, "sda & scl are connected!");
+	return 1;
 }
 
-void scan_i2c(i2c_master_bus_handle_t bus){
+esp_err_t i2c_init(void) {
+	i2c_config_t conf = {
+		.mode = I2C_MODE_MASTER,
+		.sda_io_num = SDA_IO,
+		.scl_io_num = SCL_IO,
+		.sda_pullup_en = GPIO_PULLUP_ENABLE,
+		.scl_pullup_en = GPIO_PULLUP_ENABLE,
+		.master.clk_speed = 100000
+	};
+	
+	esp_err_t ret = i2c_param_config(I2C_NUM_O, &conf);
+	if(ret != ESP_OK){
+		ESP_LOGE(TAG, "Failed to make I2C bus: %s", esp_err_to_name(ret));
+		return ret;
+	}
+
+	ret = i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
+	if(ret != ESP_OK){
+		ESP_LOGE(TAG, "Failed to install I2C driver: %s", esp_err_to_name(ret));
+		return ret;
+	}
+
+	ESP_LOGI(TAG, "I2C initialized.");
+	return ESP_OK;
+}
+
+int i2c_scan(){
 	ESP_LOGI(TAG, "i2c scanning");
 	uint8_t found = 0;
 	for(uint8_t addr = 1; addr < 127; addr++){
-		if(check_addr(bus, addr)){
-			ESP_LOGI(TAG, "FOUND - 0x%02X", addr);
+		i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+		i2c_master_start(cmd);
+		i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
+		i2c_master_stop(cmd);
+
+		esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 50);
+		i2c_cmd_link_delete(cmd);
+		if(ret == ESP_OK){
+			printf("Found: 0x%02X", addr);
+			if(addr == 0x3C || addr = 0x3D) printf("OLED display (sdmm)");
+			printf("\n");
 			found++;
+		} else {
+			printf("Failed on the addr: 0x%02X", addr);
 		}
-		vTaskDelay(1);
+		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}
-	
+	if(found == 0){
+		ESP_LOGW(TAG, "Failed to search the display, nothing found");
+		return found;
+	}
+	return found;
+}
+
+void i2c_cleanup(void){
+	i2c_driver_delete(I2C_NUM_0);
+}
+
+void i2c_procedure(void){
+	if(!check_gpio_pins()) return;
+	if(i2c_init() != ESP_OK) return;
+	i2c_scan();	
+
+	i2c_cleanup();
 }

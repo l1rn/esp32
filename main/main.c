@@ -16,13 +16,11 @@
 
 #define LED_PIN 2
 
-
 static const char *TAG = "MAIN";
 
 void app_main(void) {
 	gpio_reset_pin(LED_PIN);
 	gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
-	
 
 //	wifi_init();
 //	while(!wifi_is_connected()){
@@ -34,12 +32,8 @@ void app_main(void) {
 //	ESP_LOGI(TAG, "Wifi connected!");
 	gpio_set_level(LED_PIN, 1);
 
-	ESP_LOGI(TAG, "i2c scanner running...");
-	i2c_master_bus_handle_t bus;
-	i2c_master_init(&bus);
 	// mqtt_antminer_start();
-	scan_i2c(bus);
-	i2c_del_master_bus(bus);
+	i2c_procedure();
 	while(1){
 		vTaskDelay(1000);
 	}
