@@ -34,6 +34,13 @@ void app_main(void) {
 
 	// mqtt_antminer_start();
 	i2c_procedure();
+	if(oled_init() != ESP_OK){
+		ESP_LOGE(TAG, "Failed to initialize the display");
+		return;
+	}
+	oled_clear();
+	oled_weather_icon(0);
+	i2c_cleanup();
 	while(1){
 		vTaskDelay(1000);
 	}

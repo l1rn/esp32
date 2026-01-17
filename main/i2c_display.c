@@ -10,6 +10,8 @@
 
 static const char *TAG = "OLED DISPLAY"; 
 
+static uint8_t display_buffer[1024];
+
 int check_gpio_pins(void) {
 	ESP_LOGI(TAG, "d21 & d22 (sda & scl) checking...");
 	
@@ -93,14 +95,18 @@ void i2c_procedure(void){
 		ESP_LOGE(TAG, "Failed to connect display");
 		return;
 	}
-	if(i2c_init() != ESP_OK) return;
-	ESP_LOGI(TAG, "Device status: %s", i2c_scan());	
+	if(i2c_init() != ESP_OK){
+		ESP_LOGE(TAG, "Failed to init");
+		return;
+	} 	
 
-	i2c_cleanup();
+	char *scan_result = i2c_scan(); 
+	ESP_LOGI(TAG, "Device status: %s", scan_result);	
+
 }
 
 static void oled_cmd(uint8_t cmd_t){
-	i2c_handle_cmd_t cmd = i2c_cmd_link_create();
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 	i2c_master_start(cmd);
 	i2c_master_write_byte(cmd, OLED_ADDR << 1 | I2C_MASTER_WRITE, true);
 	i2c_master_write_byte(cmd, 0x00, true);
@@ -120,7 +126,7 @@ static void oled_data(uint8_t data) {
 	i2c_master_write_byte(cmd, data, true);
 	i2c_master_stop(cmd);
 
-	i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_PERIOD_MD);
+	i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_PERIOD_MS);
 	i2c_cmd_link_delete(cmd);
 }
 
@@ -189,4 +195,54 @@ void oled_clear(void){
 	}
 
 	ESP_LOGI(TAG, "Display cleared");
+}
+
+void oled_white_screen(void){
+	ESP_LOGI(TAG, "Making white screen...");
+
+	uint8_t white_data[128];
+
+	for(int i = 0; i < 128; i++){
+		white_data[i] = 0xFF;
+	}
+
+	for(uint8_t page = 0; page < 8; page++){
+		oled_cmd(0xB0 + page);
+		oled_cmd(0x00);
+		oled_cmd(0x10);
+
+		for(int col = 0; col < 128; col++){
+			oled_data(0xFF);
+		}
+	}
+
+	ESP_LOGI(TAG, "White screen done!");
+}
+
+void oled_weather_icon(uint8_t icon_type) {
+	static const uint8_t icon_sunny[8] = {
+		0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+	};
+
+	const uint8_t *icon_data;
+	
+	switch(icon_type){
+		case 0: 
+			icon_data = icon_sunny; 
+			break;
+		default: 
+			icon_data = icon_sunny;
+			break;
+	}
+
+	for(uint8_t page = 0; page < 2; page++){
+		oled_cmd(0xB0 + page);
+		
+		oled_cmd(0x00 + (112 & 0x0F));
+		oled_cmd(0x10 + ((112 >> 4) & 0x0F));
+
+		for(uint8_t col = 0; col < 6; col++){
+			oled_data(icon_data[page * 4 + col]);
+		}
+	}
 }

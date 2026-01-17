@@ -15,7 +15,14 @@ typedef struct{
 } i2c_display_t;
 
 esp_err_t i2c_init(void);
-int scan_i2c(void);
+int i2c_scan(void);
 void i2c_procedure(void);
+void i2c_cleanup(void);
+
+esp_err_t oled_init(void);
+void oled_clear(void);
+void oled_white_screen(void);
+void oled_weather_icon(uint8_t icon_type);
+
 
 #endif // I2C_DISPLAY_H
