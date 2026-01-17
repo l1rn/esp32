@@ -2,7 +2,7 @@
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/i2c_master.h"
+#include "driver/i2c.h"
 
 #define SCL_IO	22
 #define SDA_IO	21
@@ -11,7 +11,7 @@
 static const char *TAG = "OLED DISPLAY"; 
 
 int check_gpio_pins(void) {
-	printf("d21 & d22 (sda & scl) checking...");
+	ESP_LOGI(TAG, "d21 & d22 (sda & scl) checking...");
 	
 	gpio_set_direction(SCL_IO, GPIO_MODE_INPUT);
 	gpio_set_direction(SDA_IO, GPIO_MODE_INPUT);
@@ -42,7 +42,7 @@ esp_err_t i2c_init(void) {
 		.master.clk_speed = 100000
 	};
 	
-	esp_err_t ret = i2c_param_config(I2C_NUM_O, &conf);
+	esp_err_t ret = i2c_param_config(0, &conf);
 	if(ret != ESP_OK){
 		ESP_LOGE(TAG, "Failed to make I2C bus: %s", esp_err_to_name(ret));
 		return ret;
@@ -58,9 +58,9 @@ esp_err_t i2c_init(void) {
 	return ESP_OK;
 }
 
-int i2c_scan(){
+char *i2c_scan(){
 	ESP_LOGI(TAG, "i2c scanning");
-	uint8_t found = 0;
+	static char result[64] = "Not Found";
 	for(uint8_t addr = 1; addr < 127; addr++){
 		i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 		i2c_master_start(cmd);
@@ -70,20 +70,18 @@ int i2c_scan(){
 		esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 50);
 		i2c_cmd_link_delete(cmd);
 		if(ret == ESP_OK){
-			printf("Found: 0x%02X", addr);
-			if(addr == 0x3C || addr = 0x3D) printf("OLED display (sdmm)");
-			printf("\n");
-			found++;
+			printf("Found: 0x%02X\n", addr);
+			if(addr == 0x3C || addr == 0x3D) {
+				printf("- (OLED display (sdd1306))\n");
+				snprintf(result, sizeof(result), "the device has been found: 0x%02X", addr);
+				return result;
+			}
 		} else {
-			printf("Failed on the addr: 0x%02X", addr);
+			printf("\033[33mFailed on the addr: 0x%02X\n\033[0m", addr);
 		}
 		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}
-	if(found == 0){
-		ESP_LOGW(TAG, "Failed to search the display, nothing found");
-		return found;
-	}
-	return found;
+	return result;
 }
 
 void i2c_cleanup(void){
@@ -91,9 +89,104 @@ void i2c_cleanup(void){
 }
 
 void i2c_procedure(void){
-	if(!check_gpio_pins()) return;
+	if(!check_gpio_pins()) {
+		ESP_LOGE(TAG, "Failed to connect display");
+		return;
+	}
 	if(i2c_init() != ESP_OK) return;
-	i2c_scan();	
+	ESP_LOGI(TAG, "Device status: %s", i2c_scan());	
 
 	i2c_cleanup();
+}
+
+static void oled_cmd(uint8_t cmd_t){
+	i2c_handle_cmd_t cmd = i2c_cmd_link_create();
+	i2c_master_start(cmd);
+	i2c_master_write_byte(cmd, OLED_ADDR << 1 | I2C_MASTER_WRITE, true);
+	i2c_master_write_byte(cmd, 0x00, true);
+	i2c_master_write_byte(cmd, cmd_t, true);
+	i2c_master_stop(cmd);
+	
+	i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_PERIOD_MS);
+	i2c_cmd_link_delete(cmd);
+}
+
+static void oled_data(uint8_t data) {
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+
+	i2c_master_start(cmd);
+	i2c_master_write_byte(cmd, OLED_ADDR << 1 | I2C_MASTER_WRITE, true);
+	i2c_master_write_byte(cmd, 0x40, true);
+	i2c_master_write_byte(cmd, data, true);
+	i2c_master_stop(cmd);
+
+	i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_PERIOD_MD);
+	i2c_cmd_link_delete(cmd);
+}
+
+esp_err_t oled_init(void){
+	ESP_LOGI(TAG, "Initializing OLED display");
+	vTaskDelay(100 / portTICK_PERIOD_MS);
+	oled_cmd(0xAE);
+
+	oled_cmd(0xD5);
+	oled_cmd(0x80);
+
+	oled_cmd(0xA8);
+	oled_cmd(0x3F);
+
+	oled_cmd(0xD3);
+	oled_cmd(0x00);
+
+	oled_cmd(0x40);
+	
+	oled_cmd(0x8D);
+	oled_cmd(0x14);
+
+	oled_cmd(0x20);
+	oled_cmd(0x00);
+
+	oled_cmd(0xA1);
+	oled_cmd(0xC8);
+
+	oled_cmd(0xDA);
+	oled_cmd(0x12);
+	
+	oled_cmd(0x81);
+	oled_cmd(0xCF);
+
+	oled_cmd(0xD9);
+	oled_cmd(0xF1);
+
+	oled_cmd(0xDB);
+	oled_cmd(0x40);
+
+	oled_cmd(0xA4);
+	oled_cmd(0xA6);
+
+	oled_cmd(0xAF);
+
+	ESP_LOGI(TAG, "OLED initialized");
+	return ESP_OK;
+}
+
+void oled_clear(void){
+	ESP_LOGI(TAG, "Clearing display...");
+
+	oled_cmd(0x20);
+	oled_cmd(0x00);
+
+	oled_cmd(0x21);
+	oled_cmd(0x00);
+	oled_cmd(0x7F);
+
+	oled_cmd(0x22);
+	oled_cmd(0x00);
+	oled_cmd(0x07);
+	
+	for(uint16_t i = 0; i < 128 * 8; i++){
+		oled_data(0x00);
+	}
+
+	ESP_LOGI(TAG, "Display cleared");
 }
