@@ -39,7 +39,7 @@ void app_main(void) {
 		return;
 	}
 	oled_clear();
-	oled_weather_icon(0);
+	oled_write_numbers(10);
 	i2c_cleanup();
 	while(1){
 		vTaskDelay(1000);

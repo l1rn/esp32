@@ -23,6 +23,6 @@ esp_err_t oled_init(void);
 void oled_clear(void);
 void oled_white_screen(void);
 void oled_weather_icon(uint8_t icon_type);
-
+void oled_write_numbers(int num1);
 
 #endif // I2C_DISPLAY_H

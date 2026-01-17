@@ -4,6 +4,8 @@
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
+#include "fonts.h"
+
 #define SCL_IO	22
 #define SDA_IO	21
 #define OLED_ADDR 0x3C
@@ -11,6 +13,9 @@
 static const char *TAG = "OLED DISPLAY"; 
 
 static uint8_t display_buffer[1024];
+
+static uint8_t cursor_x = 0;
+static uint8_t cursor_y = 0;
 
 int check_gpio_pins(void) {
 	ESP_LOGI(TAG, "d21 & d22 (sda & scl) checking...");
@@ -176,6 +181,7 @@ esp_err_t oled_init(void){
 	return ESP_OK;
 }
 
+// TODO: deprecated
 void oled_clear(void){
 	ESP_LOGI(TAG, "Clearing display...");
 
@@ -217,6 +223,60 @@ void oled_white_screen(void){
 	}
 
 	ESP_LOGI(TAG, "White screen done!");
+}
+
+void oled_clear_display(void){
+	memset(display_buffer, 0, sizeof(display_buffer));
+	cursor_x = 0;
+	cursor_y = 0;
+}
+
+void oled_set_cursor(uint8_t x, uint8_t y){
+	cursor_x = x;
+	cursor_y = y;
+}
+
+static void set_pixel(uint8_t x, uint8_t y, bool on) {
+	if(x >= 128 || y >= 64) return;
+
+	uint8_t page = y / 8;
+	uint8_t bit = y % 8;
+	uint16_t index = page * 128 + x;
+
+	if(on){
+		display_buffer[index] |= (1 << bit);
+	} else {
+		display_buffer[index] &= ~(1 << bit);
+	}
+}
+
+// test
+void oled_write_numbers(int num1){
+	oled_cmd(0xB0 + 7);
+	oled_cmd(0x00);
+	oled_cmd(0x10);
+
+	for(int i = 0; i < 30; i++){
+		oled_data(0x00);
+	}
+
+	int digit = num1 / 10;
+	if(digit >= 0 && digit <= 9){
+		const uint8_t *char_data = font_5x7[digit + 16];
+		for(int col = 0; col < 5; col++){
+			oled_data(char_data[col]);
+		}
+	}
+
+	oled_data(0x00);
+	digit = num1 % 10;
+	if(digit >= 0 && digit <= 9) {
+		const uint8_t *char_data = font_5x7[digit + 16];
+		for(int col = 0; col < 5; col++){
+			oled_data(char_data[col]);
+		}
+	}
+	oled_data(0x00);
 }
 
 void oled_weather_icon(uint8_t icon_type) {
