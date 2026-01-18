@@ -61,6 +61,8 @@ void app_main(void) {
 	mqtt_antminer_start();
 	oled_clear();
 
+	weather_response_t forecasts[MAX_FORECASTS];
+
 	uint32_t localtime_counter = 0;
 	uint32_t weather_counter = 0;
 	// main cycle
@@ -68,11 +70,12 @@ void app_main(void) {
 		if(localtime_counter % 2 == 0){
 			if(is_time_synced()){
 				char *time = get_current_time_str();
-				oled_test_time(time);
+				oled_draw_time(time);
 			}
 		}
 		if(weather_counter % 10 == 0) {
-			get_weather_15hours();
+			get_weather_15hours(forecasts, MAX_FORECASTS);
+			oled_draw_weather_item(forecasts[0]);
 		}
 		weather_counter++;
 		localtime_counter++;

@@ -7,6 +7,8 @@
 
 #define I2C_ADDR 0x3C;
 
+#include "http_handler.h"
+
 typedef struct{
 	uint8_t address;
 	int sda_pin;
@@ -15,7 +17,6 @@ typedef struct{
 } i2c_display_t;
 
 esp_err_t i2c_init(void);
-int i2c_scan(void);
 void i2c_procedure(void);
 void i2c_cleanup(void);
 
@@ -23,9 +24,9 @@ esp_err_t oled_init(void);
 void oled_clear(void);
 void oled_white_screen(void);
 void oled_weather_icon(uint8_t icon_type);
-void oled_write_numbers(int num1);
 
 void oled_draw_string(const char *str, uint8_t x, uint8_t y);
-void oled_test_time(char *time);
+void oled_draw_time(const char *time_str);
+void oled_draw_weather_item(weather_response_t forecast);
 
 #endif // I2C_DISPLAY_H

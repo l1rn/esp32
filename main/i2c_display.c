@@ -5,6 +5,8 @@
 #include "driver/i2c.h"
 
 #include "fonts.h"
+#include "i2c_display.h"
+#include "ntp_time.h"
 
 #define SCL_IO	22
 #define SDA_IO	21
@@ -273,10 +275,18 @@ void oled_draw_time(const char *time_str){
 	oled_draw_string(time_str, x_pos, 0);
 }
 
-void oled_test_time(char *time){
-	ESP_LOGI(TAG, "Testing time display...");
-	oled_clear_display();
-	oled_draw_string(time, 48, 0);
+void oled_draw_weather_item(weather_response_t forecast){
+	oled_cmd(0xB0 + 7);
+	oled_cmd(0x00);
+	oled_cmd(0x10);
+
+	for(int i = 0; i < 128; i++){
+		oled_data(0x00);
+	}
+	char datetime[20];
+	get_datetime_from_timestamp(forecast.dt, datetime, sizeof(datetime));
+	
+	oled_draw_string(datetime, 0, 56);
 }
 
 void oled_set_cursor(uint8_t x, uint8_t y){
@@ -296,35 +306,6 @@ static void set_pixel(uint8_t x, uint8_t y, bool on) {
 	} else {
 		display_buffer[index] &= ~(1 << bit);
 	}
-}
-
-// test
-void oled_write_numbers(int num1){
-	oled_cmd(0xB0 + 7);
-	oled_cmd(0x00);
-	oled_cmd(0x10);
-
-	for(int i = 0; i < 30; i++){
-		oled_data(0x00);
-	}
-
-	int digit = num1 / 10;
-	if(digit >= 0 && digit <= 9){
-		const uint8_t *char_data = font_5x7[digit + 16];
-		for(int col = 0; col < 5; col++){
-			oled_data(char_data[col]);
-		}
-	}
-
-	oled_data(0x00);
-	digit = num1 % 10;
-	if(digit >= 0 && digit <= 9) {
-		const uint8_t *char_data = font_5x7[digit + 16];
-		for(int col = 0; col < 5; col++){
-			oled_data(char_data[col]);
-		}
-	}
-	oled_data(0x00);
 }
 
 void oled_weather_icon(uint8_t icon_type) {

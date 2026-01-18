@@ -15,8 +15,6 @@
 #define API_KEY CONFIG_WEATHER_API_KEY
 #define CITY	CONFIG_WEATHER_CITY
 
-#define MAX_FORECASTS 8
-
 static const char *TAG = "HTTP_HANDLER";
 
 typedef struct {
@@ -53,7 +51,7 @@ weather_response_t parse_single_forecast(cJSON *item){
 	return forecast;
 }
 
-int parse_weather_forecast(cJSON *json, weather_response_t forecasts[]){
+int parse_weather_forecast(cJSON *json, weather_response_t forecasts[], int max_forecasts){
 	cJSON *list = cJSON_GetObjectItem(json, "list");
 	if(!cJSON_IsArray(list)){
 		ESP_LOGE(TAG, "No 'list' array found");
@@ -62,6 +60,8 @@ int parse_weather_forecast(cJSON *json, weather_response_t forecasts[]){
 
 	int list_size = cJSON_GetArraySize(list);
 	int fc_count = 0;	
+	
+	int items_to_parse = (list_size < max_forecasts) ? list_size : max_forecasts;
 
 	for(int i = 0; i < list_size; i++){
 		cJSON *item = cJSON_GetArrayItem(list, i);
@@ -135,7 +135,7 @@ void get_weather_current(void){
 	free(response.data);
 }
 
-void get_weather_15hours(void){
+void get_weather_15hours(weather_response_t forecasts[], int max_forecasts){
 	http_response_t response = {
 		.data = NULL,
 		.size = 0
@@ -163,8 +163,7 @@ void get_weather_15hours(void){
 		if(json == NULL){
 			printf("Error parsing JSON");
 		} else {
-			weather_response_t forecasts[MAX_FORECASTS];
-			int count = parse_weather_forecast(json, forecasts);
+			int count = parse_weather_forecast(json, forecasts, max_forecasts);
 			for (int i = 0; i < count; i++) {
 			    ESP_LOGI("WEATHER", "%s: %s, %d°C (feels %d), wind %d m/s",
 				     forecasts[i].datetime,

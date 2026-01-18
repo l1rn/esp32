@@ -45,23 +45,23 @@ char *get_current_time_str(void){
 
 
 
-char *get_time_from_timestamp(int timestamp_v){
-	static char buffer[6];
-	
+void get_datetime_from_timestamp(int timestamp_v, char *buffer, size_t buffer_size){
 	time_t timestamp = (time_t)timestamp_v;
+	timestamp += 5 * 3600;
 	struct tm *local_tm = localtime(&timestamp);
-
-	strftime(buffer, sizeof(buffer), "%H:%M", local_tm);
-	return buffer;
+	snprintf(buffer, buffer_size, "%02d-%02d (%02d:%02d)", 
+			local_tm->tm_mday, local_tm->tm_mon + 1,
+			local_tm->tm_hour, local_tm->tm_min);
 }
 
 char *get_date_from_timestamp(int timestamp_v){
 	static char buffer[6];
 
 	time_t timestamp = (time_t)timestamp_v;
+	timestamp += 5 * 3600;
 	struct tm *local_tm = localtime(&timestamp);
 
-	strftime(buffer, sizeof(buffer), "%d-%m", local_tm);
+	strftime(buffer, sizeof(buffer), "%0d-%0m", local_tm);
 	return buffer;
 }
 	
