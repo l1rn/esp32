@@ -231,6 +231,54 @@ void oled_clear_display(void){
 	cursor_y = 0;
 }
 
+static void oled_draw_char(char c, uint8_t x, uint8_t y){
+	if(c < 32 || c > 127) return;
+
+	const uint8_t *char_data = font_5x7[c - 32];
+
+	oled_cmd(0xB0 + (y / 8));
+	oled_cmd(0x00 + (x & 0x0F));
+	oled_cmd(0x10 + ((x >> 4) & 0x0F));
+
+	for(int col = 0; col < 5; col++){
+		oled_data(char_data[col]);	
+	}
+}
+
+void oled_draw_string(const char *str, uint8_t x, uint8_t y){
+	uint8_t current_x = x;
+	while(*str) {
+		oled_draw_char(*str, current_x, y);
+		current_x += 6;
+		str++;
+	}
+}
+
+void oled_draw_time(const char *time_str){
+	int len = strlen(time_str);
+	int width = len * 6;
+
+	int x_pos = 128 - width;
+
+	for(uint8_t page = 0; page < 1; page++){
+		oled_cmd(0xB0 + page);
+		oled_cmd(0x00 + (x_pos & 0x0F));
+		oled_cmd(0x10 + ((x_pos >> 4) & 0x0F));
+
+		for(int i = 0; i < width + 2; i++){
+			oled_data(0x00);
+		}
+	}
+
+	oled_draw_string(time_str, x_pos, 0);
+}
+
+void oled_test_time(char *time){
+	ESP_LOGI(TAG, "Testing time display...");
+	oled_clear_display();
+	oled_draw_string(time, 48, 0);
+}
+
 void oled_set_cursor(uint8_t x, uint8_t y){
 	cursor_x = x;
 	cursor_y = y;

@@ -43,6 +43,28 @@ char *get_current_time_str(void){
 	return buffer;
 }
 
+
+
+char *get_time_from_timestamp(int timestamp_v){
+	static char buffer[6];
+	
+	time_t timestamp = (time_t)timestamp_v;
+	struct tm *local_tm = localtime(&timestamp);
+
+	strftime(buffer, sizeof(buffer), "%H:%M", local_tm);
+	return buffer;
+}
+
+char *get_date_from_timestamp(int timestamp_v){
+	static char buffer[6];
+
+	time_t timestamp = (time_t)timestamp_v;
+	struct tm *local_tm = localtime(&timestamp);
+
+	strftime(buffer, sizeof(buffer), "%d-%m", local_tm);
+	return buffer;
+}
+	
 bool is_time_synced(void){
 	return time_synced;
 }

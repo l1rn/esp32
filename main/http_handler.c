@@ -8,28 +8,66 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 
+#include "http_handler.h"
+
 #include "cJSON.h"
 
 #define API_KEY CONFIG_WEATHER_API_KEY
 #define CITY	CONFIG_WEATHER_CITY
 
-static const char *TAG = "HTTP HANDLER";
+#define MAX_FORECASTS 8
+
+static const char *TAG = "HTTP_HANDLER";
 
 typedef struct {
 	char *data;
 	size_t size;
 } http_response_t;
 
-char *format_datetime_time(char *datetime){
-	static char time[9];
-	sscanf(datetime, "%*[^T]T%8s", time);
-	return time;
+weather_response_t parse_single_forecast(cJSON *item){
+	weather_response_t forecast = {0};
+
+	cJSON *dt_txt = cJSON_GetObjectItem(item, "dt_txt");
+	cJSON *dt_tm = cJSON_GetObjectItem(item, "dt");
+
+	cJSON *main = cJSON_GetObjectItem(item, "main");
+	cJSON *temp = cJSON_GetObjectItem(main, "temp");
+	cJSON *feels_like = cJSON_GetObjectItem(main, "feels_like");
+	
+	cJSON *weather = cJSON_GetObjectItem(item, "weather");
+	cJSON *weather_item = cJSON_GetArrayItem(weather, 0);
+	cJSON *weather_main = cJSON_GetObjectItem(weather_item, "description");
+	
+	cJSON *wind = cJSON_GetObjectItem(item, "wind");
+	cJSON *wind_speed = cJSON_GetObjectItem(wind, "speed");			
+
+	if(cJSON_IsString(dt_txt) && cJSON_IsNumber(dt_tm) && cJSON_IsNumber(temp) 
+			&& cJSON_IsString(weather_main) && cJSON_IsNumber(wind_speed)){
+		strcpy(forecast.datetime, dt_txt->valuestring);
+		strcpy(forecast.weather, weather_main->valuestring);
+		forecast.dt = dt_tm->valueint;
+		forecast.wind_speed = wind_speed->valuedouble;
+		forecast.feels_like = (int)feels_like->valuedouble;
+		forecast.temp = (int)temp->valuedouble;
+	}
+	return forecast;
 }
 
-char *format_datetime_date(char *datetime){
-	static char date[11];
-	sscanf(datetime, "%[^T]T", date);
-	return date;
+int parse_weather_forecast(cJSON *json, weather_response_t forecasts[]){
+	cJSON *list = cJSON_GetObjectItem(json, "list");
+	if(!cJSON_IsArray(list)){
+		ESP_LOGE(TAG, "No 'list' array found");
+		return 0;
+	}
+
+	int list_size = cJSON_GetArraySize(list);
+	int fc_count = 0;	
+
+	for(int i = 0; i < list_size; i++){
+		cJSON *item = cJSON_GetArrayItem(list, i);
+		forecasts[fc_count++] = parse_single_forecast(item);
+	}
+	return fc_count;
 }
 
 esp_err_t http_event_handler(esp_http_client_event_t *evt){
@@ -125,60 +163,16 @@ void get_weather_15hours(void){
 		if(json == NULL){
 			printf("Error parsing JSON");
 		} else {
-			
-			cJSON *city_obj	= cJSON_GetObjectItem(json, "city");
-			cJSON *list_obj = cJSON_GetObjectItem(json, "list");
-			int size = cJSON_GetArraySize(list_obj);
-			for(int i = 0; i < size; i++){
-				cJSON *list = cJSON_GetArrayItem(list_obj, i);
-				
-				cJSON *date_txt = cJSON_GetObjectItem(list, "dt_txt");
-				cJSON *main_obj = cJSON_GetObjectItem(list, "main");
-				cJSON *weather_obj = cJSON_GetObjectItem(list, "weather");
-				cJSON *weather = cJSON_GetArrayItem(weather_obj, 0);
-				cJSON *wind_obj = cJSON_GetObjectItem(list, "wind");
-				
-				cJSON *temp = cJSON_GetObjectItem(main_obj, "temp");
-				cJSON *feels_like = cJSON_GetObjectItem(main_obj, "feels_like");
-				
-				cJSON *weather_txt = cJSON_GetObjectItem(weather, "main");
-				cJSON *wind_speed = cJSON_GetObjectItem(wind_obj, "speed");			
-
-				char date_buf[16];
-				if(cJSON_IsNumber(temp) && cJSON_IsNumber(feels_like)){
-					ESP_LOGI(TAG, "temp: %f\n", temp->valuedouble);
-					ESP_LOGI(TAG, "feelslike: %f\n", feels_like->valuedouble);
-					ESP_LOGI(TAG, "wind speed: %f\n", wind_speed->valuedouble);
-					ESP_LOGI(TAG, "date: %s\n", date_txt->valuestring);
-				}
+			weather_response_t forecasts[MAX_FORECASTS];
+			int count = parse_weather_forecast(json, forecasts);
+			for (int i = 0; i < count; i++) {
+			    ESP_LOGI("WEATHER", "%s: %s, %d°C (feels %d), wind %d m/s",
+				     forecasts[i].datetime,
+				     forecasts[i].weather,
+				     forecasts[i].temp,
+				     forecasts[i].feels_like,
+				     forecasts[i].wind_speed);
 			}
-			cJSON_Delete(json);
-		}
-	}
-	esp_http_client_cleanup(client);
-	free(response.data);
-}
-
-void get_current_time(void){
-	http_response_t response = {
-		.data = NULL,
-		.size = 0
-	};
-
-	esp_http_client_config_t config = {
-		.url = 			"http://worldtimeapi.org/api/timezone/Asia/Yekaterinburg",
-		.event_handler =	http_event_handler,
-		.user_data =		&response,
-	};
-
-	esp_http_client_handle_t client = esp_http_client_init(&config);
-	esp_err_t 		 res	= esp_http_client_perform(client);
-	if(res == ESP_OK){
-		cJSON *json = cJSON_Parse(response.data);
-		if(json == NULL){
-			printf("Error parsing JSON");
-		} else {
-			printf("json: %s", cJSON_Print(json));
 			cJSON_Delete(json);
 		}
 	}

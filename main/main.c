@@ -25,7 +25,14 @@ void app_main(void) {
 	gpio_reset_pin(LED_PIN);
 	gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
 	gpio_set_level(LED_PIN, 0);
+	
+	i2c_procedure();
+	if(oled_init() != ESP_OK){
+		ESP_LOGE(TAG, "Failed to initialize the display");
+		return;
+	}
 
+	// wifi
 	wifi_init();
 	while(!wifi_is_connected()){
 		ESP_LOGI(TAG, "Waiting for Wifi...");
@@ -34,10 +41,11 @@ void app_main(void) {
 	}
 
 	ESP_LOGI(TAG, "Wifi connected!");
-	vTaskDelay(pdMS_TO_TICKS(2000));
-
-	init_ntp_time();
 	gpio_set_level(LED_PIN, 1);
+	
+	// delay before connection & ntp init
+	vTaskDelay(pdMS_TO_TICKS(2000));
+	init_ntp_time();
 
 	int timeout = 0;
 	while(!is_time_synced() && timeout < 10){
@@ -50,18 +58,25 @@ void app_main(void) {
 		printf("Time: %s\n", get_current_time_str());
 	}
 
-	// mqtt_antminer_start();
-	i2c_procedure();
-	if(oled_init() != ESP_OK){
-		ESP_LOGE(TAG, "Failed to initialize the display");
-		return;
-	}
+	mqtt_antminer_start();
 	oled_clear();
 
+	uint32_t localtime_counter = 0;
+	uint32_t weather_counter = 0;
+	// main cycle
 	while(1) {
-		get_weather_15hours();
-		char *time = get_current_time_str();
-		vTaskDelay(pdMS_TO_TICKS(5000));
+		if(localtime_counter % 2 == 0){
+			if(is_time_synced()){
+				char *time = get_current_time_str();
+				oled_test_time(time);
+			}
+		}
+		if(weather_counter % 10 == 0) {
+			get_weather_15hours();
+		}
+		weather_counter++;
+		localtime_counter++;
+		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 	i2c_cleanup();
 }

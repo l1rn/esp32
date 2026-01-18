@@ -25,4 +25,7 @@ void oled_white_screen(void);
 void oled_weather_icon(uint8_t icon_type);
 void oled_write_numbers(int num1);
 
+void oled_draw_string(const char *str, uint8_t x, uint8_t y);
+void oled_test_time(char *time);
+
 #endif // I2C_DISPLAY_H
