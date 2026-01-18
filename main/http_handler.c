@@ -13,12 +13,24 @@
 #define API_KEY CONFIG_WEATHER_API_KEY
 #define CITY	CONFIG_WEATHER_CITY
 
-static const char *TAG = "WEATHER";
+static const char *TAG = "HTTP HANDLER";
 
 typedef struct {
 	char *data;
 	size_t size;
 } http_response_t;
+
+char *format_datetime_time(char *datetime){
+	static char time[9];
+	sscanf(datetime, "%*[^T]T%8s", time);
+	return time;
+}
+
+char *format_datetime_date(char *datetime){
+	static char date[11];
+	sscanf(datetime, "%[^T]T", date);
+	return date;
+}
 
 esp_err_t http_event_handler(esp_http_client_event_t *evt){
 	http_response_t *resp = (http_response_t *)evt->user_data;
@@ -31,16 +43,6 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt){
 	}
 
 	return ESP_OK;
-}
-
-void format_date_dd_mm(const char *input, char *output, size_t out_size){
-	struct tm tm = {0};
-
-	if(strptime(input, "%Y-%m-%d %H:%M:%S", &tm) == NULL){
-		return;
-	}
-
-	strftime(output, out_size, "%d-%b", &tm);
 }
 
 void get_weather_current(void){
@@ -150,6 +152,33 @@ void get_weather_15hours(void){
 					ESP_LOGI(TAG, "date: %s\n", date_txt->valuestring);
 				}
 			}
+			cJSON_Delete(json);
+		}
+	}
+	esp_http_client_cleanup(client);
+	free(response.data);
+}
+
+void get_current_time(void){
+	http_response_t response = {
+		.data = NULL,
+		.size = 0
+	};
+
+	esp_http_client_config_t config = {
+		.url = 			"http://worldtimeapi.org/api/timezone/Asia/Yekaterinburg",
+		.event_handler =	http_event_handler,
+		.user_data =		&response,
+	};
+
+	esp_http_client_handle_t client = esp_http_client_init(&config);
+	esp_err_t 		 res	= esp_http_client_perform(client);
+	if(res == ESP_OK){
+		cJSON *json = cJSON_Parse(response.data);
+		if(json == NULL){
+			printf("Error parsing JSON");
+		} else {
+			printf("json: %s", cJSON_Print(json));
 			cJSON_Delete(json);
 		}
 	}
