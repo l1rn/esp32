@@ -1,11 +1,11 @@
 #ifndef I2C_DISPLAY_H
 #define I2C_DISPLAY_H
 
-#define I2C_WIDTH 128;
-#define I2C_HEIGHT 128;
-#define	I2C_PAGES 8;
+#define OLED_WIDTH 128
+#define OLED_HEIGHT 128
+#define	OLED_PAGES 8
 
-#define I2C_ADDR 0x3C;
+#define I2C_ADDR 0x3C
 
 #include "http_handler.h"
 

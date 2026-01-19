@@ -2,3 +2,4 @@ dependencies:
   espressif/led_strip: ^3.0.0
   espressif/cJSON: ==1.7.19
   espressif/mqtt: '*'
+  lvgl/lvgl: '*'

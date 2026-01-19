@@ -13,6 +13,6 @@ typedef struct {
 } weather_response_t;
 
 void get_weather_15hours(weather_response_t forecasts[], int max_forecasts);
-void get_weather_current(void);
+void get_weather_current(weather_response_t *forecast);
 
 #endif // WEATHER_H

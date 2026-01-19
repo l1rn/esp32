@@ -83,7 +83,7 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt){
 	return ESP_OK;
 }
 
-void get_weather_current(void){
+void get_weather_current(weather_response_t *forecast){
 	http_response_t response = {
 		.data = NULL,
 		.size = 0
@@ -93,7 +93,7 @@ void get_weather_current(void){
 	snprintf(
 			url,
 			sizeof(url),
-			"http://api.openweathermap.org/data/2.5/weather?/q%s&units=metric&appid=%s",
+			"http://api.openweathermap.org/data/2.5/weather?q=%s&units=metric&appid=%s",
 			CONFIG_WEATHER_CITY,
 			CONFIG_WEATHER_API_KEY
 		);
@@ -112,22 +112,9 @@ void get_weather_current(void){
 			ESP_LOGE(TAG, "Error parsing json");
 			return;
 		} else {
-			cJSON *name = cJSON_GetObjectItem(json, "name");
-
-			cJSON *weather_obj = cJSON_GetObjectItem(json, "weather");
-			cJSON *weather = cJSON_GetArrayItem(weather_obj, 0);
-			cJSON *weather_name = cJSON_GetObjectItem(weather, "main");
-			
-			cJSON *main_obj = cJSON_GetObjectItem(json, "main");
-			cJSON *temp = cJSON_GetObjectItem(main_obj, "temp");
-			cJSON *feels_like = cJSON_GetObjectItem(main_obj, "feels_like");
-
-			cJSON *wind_obj = cJSON_GetObjectItem(json, "wind");
-			cJSON *wind_speed = cJSON_GetObjectItem(wind_obj, "speed");
-			if(cJSON_IsNumber(temp) && cJSON_IsNumber(wind_speed) && cJSON_IsNumber(feels_like)){
-				ESP_LOGI(TAG, "temp: %f, feels like: %f, wind speed: %f", 
-					temp->valuedouble, feels_like->valuedouble, wind_speed->valuedouble);
-			}
+			weather_response_t tmp = parse_single_forecast(json);
+			forecast->temp = tmp.temp;
+			forecast->feels_like = tmp.feels_like;
 			cJSON_Delete(json);
 		}
 	}

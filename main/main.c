@@ -4,10 +4,8 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-#include "mqtt_client.h"
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "driver/i2c_master.h"
 
 #include "antminer.h"
 #include "http_handler.h"
@@ -62,11 +60,16 @@ void app_main(void) {
 	oled_clear();
 
 	weather_response_t forecasts[MAX_FORECASTS];
+	weather_response_t weather;
+	
+	miner_response_t miner_info;
 
 	uint32_t localtime_counter = 0;
 	uint32_t weather_counter = 0;
+	uint32_t antminer_counter = 0;
 	// main cycle
 	while(1) {
+			
 		if(localtime_counter % 2 == 0){
 			if(is_time_synced()){
 				char *time = get_current_time_str();
@@ -74,8 +77,16 @@ void app_main(void) {
 			}
 		}
 		if(weather_counter % 10 == 0) {
-			get_weather_15hours(forecasts, MAX_FORECASTS);
-			oled_draw_weather_item(forecasts[0]);
+//			get_weather_15hours(forecasts, MAX_FORECASTS);
+//			oled_draw_weather_item(forecasts[0]);
+			get_weather_current(&weather);
+			char temp[4];
+			sprintf(temp, "%d", weather.temp);
+
+			ESP_LOGI(TAG, "temp: %s", temp);
+		}
+		if(antminer_counter % 160 == 0){
+			
 		}
 		weather_counter++;
 		localtime_counter++;

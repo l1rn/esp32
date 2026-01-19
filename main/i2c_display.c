@@ -12,13 +12,9 @@
 #define SDA_IO	21
 #define OLED_ADDR 0x3C
 
-static const char *TAG = "OLED DISPLAY"; 
-
 static uint8_t display_buffer[1024];
 
-static uint8_t cursor_x = 0;
-static uint8_t cursor_y = 0;
-
+static const char *TAG = "OLED_DISPLAY";
 int check_gpio_pins(void) {
 	ESP_LOGI(TAG, "d21 & d22 (sda & scl) checking...");
 	
@@ -208,12 +204,6 @@ void oled_clear(void){
 void oled_white_screen(void){
 	ESP_LOGI(TAG, "Making white screen...");
 
-	uint8_t white_data[128];
-
-	for(int i = 0; i < 128; i++){
-		white_data[i] = 0xFF;
-	}
-
 	for(uint8_t page = 0; page < 8; page++){
 		oled_cmd(0xB0 + page);
 		oled_cmd(0x00);
@@ -227,12 +217,6 @@ void oled_white_screen(void){
 	ESP_LOGI(TAG, "White screen done!");
 }
 
-void oled_clear_display(void){
-	memset(display_buffer, 0, sizeof(display_buffer));
-	cursor_x = 0;
-	cursor_y = 0;
-}
-
 static void oled_draw_char(char c, uint8_t x, uint8_t y){
 	if(c < 32 || c > 127) return;
 
@@ -244,6 +228,42 @@ static void oled_draw_char(char c, uint8_t x, uint8_t y){
 
 	for(int col = 0; col < 5; col++){
 		oled_data(char_data[col]);	
+	}
+}
+
+static void set_pixel(uint8_t x, uint8_t y, bool on) {
+	if(x >= 128 || y >= 64) return;
+
+	uint8_t page = y / 8;
+	uint8_t bit = y % 8;
+	uint16_t index = page * 128 + x;
+
+	if(on){
+		display_buffer[index] |= (1 << bit);
+	} else {
+		display_buffer[index] &= ~(1 << bit);
+	}
+}
+
+void oled_draw_scaled_char(char c, int8_t x, uint8_t y, uint8_t scale){
+	if(c < 32 || c > 127) return;
+	const uint8_t *char_data = font_5x7[c - 32];
+
+	for(uint8_t col = 0; col < 5; col++){
+		uint8_t col_data = char_data[col];
+		
+		for(uint8_t row = 0; row < 7; row++){
+			if(col_data & (1 << row)){
+				for(uint8_t sx = 0; sx < scale; sx++){
+					for(uint8_t sy = 0; sy < scale; sy++){
+						uint8_t pixel_x = x + (col * scale) +sx;
+						uint8_t pixel_y = y + (row * scale) + sy;
+
+						set_pixel(pixel_x, pixel_y, true);
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -289,24 +309,6 @@ void oled_draw_weather_item(weather_response_t forecast){
 	oled_draw_string(datetime, 0, 56);
 }
 
-void oled_set_cursor(uint8_t x, uint8_t y){
-	cursor_x = x;
-	cursor_y = y;
-}
-
-static void set_pixel(uint8_t x, uint8_t y, bool on) {
-	if(x >= 128 || y >= 64) return;
-
-	uint8_t page = y / 8;
-	uint8_t bit = y % 8;
-	uint16_t index = page * 128 + x;
-
-	if(on){
-		display_buffer[index] |= (1 << bit);
-	} else {
-		display_buffer[index] &= ~(1 << bit);
-	}
-}
 
 void oled_weather_icon(uint8_t icon_type) {
 	static const uint8_t icon_sunny[8] = {
@@ -335,3 +337,5 @@ void oled_weather_icon(uint8_t icon_type) {
 		}
 	}
 }
+
+
