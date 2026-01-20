@@ -1,0 +1,10 @@
+idf_component_register(
+	SRCS
+		"antminer.c"
+	INCLUDE_DIRS
+		"."
+	REQUIRES 
+		cJSON 
+		i2c_display 
+		mqtt		
+)

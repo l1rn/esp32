@@ -356,3 +356,20 @@ void oled_draw_update(void){
 		}
 	}
 }
+
+void oled_draw_digit(char d, uint8_t x, uint8_t y){
+	if(d < '0' || d > '9') return;
+
+	uint8_t index = d - '0';
+	uint8_t page = y / 8;
+
+	for(int col = 0; col < 16; col++){
+		for(int p = 0; p < 3; p++){
+			oled_cmd(0xB0 + page + p);
+			oled_cmd(0x00 + ((x+col) & 0x0F));
+			oled_cmd(0x10 + (((x+col) >> 4) & 0x0F));
+
+			oled_data(font_16x24_digits[index][col][p]);
+		}
+	}
+}

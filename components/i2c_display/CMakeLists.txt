@@ -1,0 +1,14 @@
+idf_component_register(
+	SRCS
+		"i2c_display.c"
+	INCLUDE_DIRS
+		"."
+	REQUIRES
+		http_handler
+		fonts
+		ntp_time
+		driver
+		esp_driver_i2c
+	PRIV_REQUIRES
+		esp_driver_gpio
+)

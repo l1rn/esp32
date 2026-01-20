@@ -84,7 +84,10 @@ void app_main(void) {
 			ESP_LOGI(TAG, "temp: %s", temp);
 		}
 		if(antminer_counter % 20 == 0){
-			oled_draw_miner_info();
+//			oled_draw_miner_info();
+			oled_draw_digit('2', 0, 0);
+			oled_draw_digit('1', 18, 0);
+			oled_draw_digit('4', 0, 26);
 		}
 		weather_counter++;
 		localtime_counter++;
