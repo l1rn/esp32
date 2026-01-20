@@ -26,6 +26,7 @@ void oled_white_screen(void);
 void oled_weather_icon(uint8_t icon_type);
 
 void oled_draw_string(const char *str, uint8_t x, uint8_t y);
+void oled_draw_char(char c, uint8_t x, uint8_t y);
 void oled_draw_time(const char *time_str);
 void oled_draw_weather_item(weather_response_t forecast);
 

@@ -217,17 +217,40 @@ void oled_white_screen(void){
 	ESP_LOGI(TAG, "White screen done!");
 }
 
-static void oled_draw_char(char c, uint8_t x, uint8_t y){
+void oled_draw_char(char c, uint8_t x, uint8_t y){
 	if(c < 32 || c > 127) return;
 
 	const uint8_t *char_data = font_5x7[c - 32];
 
-	oled_cmd(0xB0 + (y / 8));
-	oled_cmd(0x00 + (x & 0x0F));
-	oled_cmd(0x10 + ((x >> 4) & 0x0F));
+	uint8_t page = y / 8;
+	uint8_t page_offset = y % 8;
 
-	for(int col = 0; col < 5; col++){
-		oled_data(char_data[col]);	
+	if(page_offset == 0){
+		oled_cmd(0xB0 + page);
+		oled_cmd(0x00 + (x & 0x0F));
+		oled_cmd(0x10 + ((x >> 4) & 0x0F));
+
+		for(int col = 0; col < 5; col++){
+			oled_data(char_data[col]);	
+		}
+	} else {
+		oled_cmd(0xB0 + page);
+		oled_cmd(0x00 + (x & 0x0F));
+		oled_cmd(0x10 + ((x >> 4) & 0x0F));
+
+		for(int col = 0; col < 5; col++){
+			uint8_t data_low = char_data[col] << page_offset;
+			oled_data(data_low);
+		}
+
+		oled_cmd(0xB0 + page + 1);
+		oled_cmd(0x00 + (x & 0x0F));
+		oled_cmd(0x10 + ((x >> 4) & 0x0F));
+
+		for(int col = 0; col < 5; col++){
+			uint8_t data_high = char_data[col] >> (8 - page_offset);
+			oled_data(data_high);
+		}
 	}
 }
 

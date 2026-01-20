@@ -62,8 +62,6 @@ void app_main(void) {
 	weather_response_t forecasts[MAX_FORECASTS];
 	weather_response_t weather;
 	
-	miner_response_t miner_info;
-
 	uint32_t localtime_counter = 0;
 	uint32_t weather_counter = 0;
 	uint32_t antminer_counter = 0;
@@ -85,11 +83,12 @@ void app_main(void) {
 
 			ESP_LOGI(TAG, "temp: %s", temp);
 		}
-		if(antminer_counter % 160 == 0){
-			
+		if(antminer_counter % 20 == 0){
+			oled_draw_miner_info();
 		}
 		weather_counter++;
 		localtime_counter++;
+		antminer_counter++;
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 	i2c_cleanup();

@@ -1,10 +1,14 @@
 #include "mqtt_client.h"
+#include "antminer.h"
 #include "cJSON.h"
 #include "esp_log.h"
+#include "i2c_display.h"
 
 static const char *TAG = "MQTT_ANTMINER";
 
 static esp_mqtt_client_handle_t client = NULL;
+
+miner_response_t miner_data = {0};
 
 int parse_antminer_json(const char *root, miner_response_t *data){
 	cJSON *json = cJSON_Parse(root);
@@ -19,14 +23,14 @@ int parse_antminer_json(const char *root, miner_response_t *data){
 			strncpy(data->status, 
 				cJSON_GetObjectItem(status, "STATUS")->valuestring, 
 				sizeof(data->status));
-			data->timestamp = cJSON_GetObjectName(status, "when")->valueint;
+			data->timestamp = cJSON_GetObjectItem(status, "when")->valueint;
 		}
 
 		cJSON *stats = cJSON_GetObjectItem(json, "STATS");
 		if(stats){
 			cJSON *obj = cJSON_GetArrayItem(stats, 0);
 		
-			cJSON *rate_avg = cJSON_GetObjectItem(obj, "rate_avg");
+			cJSON *rate_avg = cJSON_GetObjectItem(obj, "rate_5s");
 			cJSON *rate_unit = cJSON_GetObjectItem(obj, "rate_unit");
 			cJSON *fan_num = cJSON_GetObjectItem(obj, "fan_num");
 			cJSON *chain_num = cJSON_GetObjectItem(obj, "chain_num");
@@ -46,7 +50,7 @@ int parse_antminer_json(const char *root, miner_response_t *data){
 				cJSON *chain = cJSON_GetArrayItem(chains, i);
 
 				data->chains[i].rate_real = 
-					cJSON_GetObjectItem(chain, "rate_real")->valuestring;
+					cJSON_GetObjectItem(chain, "rate_real")->valuedouble;
 
 				cJSON *temp_chip = cJSON_GetObjectItem(chain, "temp_chip");
 				
@@ -65,19 +69,16 @@ int parse_antminer_json(const char *root, miner_response_t *data){
 				data->chains[i].temp_out_avg = tp_out / 2;
 				
 				strncpy(data->chains[i].sn,
-					cJSON_GetObjectName(chain,sn)->valuestring,
+					cJSON_GetObjectItem(chain, "sn")->valuestring,
 					sizeof(data->chains[i].sn));
 
 				data->chains[i].hw_errors = 
-					cJSON_GetObjectName(chain, "hw")->valueint;
+					cJSON_GetObjectItem(chain, "hw")->valueint;
 			}
 		}
-
-		
-		ESP_LOGI(TAG, "%s\n", cJSON_Print(elapsed));
-		cJSON_Delete(json);
 	}
 
+	cJSON_Delete(json);
 	return 0;
 }
 
@@ -99,7 +100,7 @@ static void mqtt_event_handler(void *handler_args,
 
 		case MQTT_EVENT_DATA:
 			ESP_LOGI(TAG, "Data received, len: %d", event->data_len);
-			parse_antminer_json(event->data);
+			parse_antminer_json(event->data, &miner_data);
 			break;
 		
 		default:
@@ -123,4 +124,35 @@ void mqtt_antminer_start(void){
 			NULL
 			);
 	esp_mqtt_client_start(client);
+}
+
+void oled_draw_miner_info(){
+	char rate_avg[12];
+	sprintf(rate_avg, "%d", (int)miner_data.rate_avg);
+	char hashrate[64];
+	snprintf(hashrate, sizeof(hashrate), "HASHRATE:%sGH/S", 
+			rate_avg);
+
+	char chain_temperature[48];
+	int chtemp_in = 0;
+	int chtemp_out = 0;
+	for(int i = 0; i < miner_data.chain_num && i < 3; i++){
+		chtemp_in += miner_data.chains[i].temp_in_avg;
+		chtemp_out += miner_data.chains[i].temp_out_avg;
+	}
+	snprintf(chain_temperature, sizeof(chain_temperature), 
+			"IN: %d~C / OUT: %d~C", chtemp_in / 3, chtemp_out / 3);
+	int y = 10;
+	oled_draw_string(hashrate, 0, y);
+	y += 11;
+	// oled_draw_string(chain_temperature, 0, 22);
+	//
+	for(int i = 0; i < miner_data.chain_num && i < 3; i++){
+		char chain_info[64];
+		snprintf(chain_info, sizeof(chain_info), 
+				"%d:%d / %d~ %d~", i, (int)miner_data.chains[i].rate_real, 
+				miner_data.chains[i].temp_in_avg, miner_data.chains[i].temp_out_avg);
+		oled_draw_string(chain_info, 0, y);
+		y += 11;
+	}
 }
