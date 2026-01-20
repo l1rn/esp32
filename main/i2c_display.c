@@ -221,9 +221,27 @@ void oled_draw_char(char c, uint8_t x, uint8_t y){
 	if(c < 32 || c > 127) return;
 
 	const uint8_t *char_data = font_5x7[c - 32];
-
 	uint8_t page = y / 8;
 	uint8_t page_offset = y % 8;
+	
+	for(int col = 0; col < 5; col++){
+		uint8_t col_x = x + col;
+		if(col_x >= 128) break;
+
+		if(page < 8){
+			oled_cmd(0xB0 + page);
+			oled_cmd(0x00 + (col_x & 0x0F));
+			oled_cmd(0x10 + ((col_x >> 4) & 0x0F));
+            		oled_data(0x00); 
+		}
+
+		if(page_offset > 0 && page + 1 < 8){
+			oled_cmd(0xB0 + page + 1);
+		        oled_cmd(0x00 + (col_x & 0x0F));
+		        oled_cmd(0x10 + ((col_x >> 4) & 0x0F));
+		        oled_data(0x00);
+		}
+	}
 
 	if(page_offset == 0){
 		oled_cmd(0xB0 + page);
