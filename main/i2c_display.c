@@ -272,41 +272,7 @@ void oled_draw_char(char c, uint8_t x, uint8_t y){
 	}
 }
 
-static void set_pixel(uint8_t x, uint8_t y, bool on) {
-	if(x >= 128 || y >= 64) return;
 
-	uint8_t page = y / 8;
-	uint8_t bit = y % 8;
-	uint16_t index = page * 128 + x;
-
-	if(on){
-		display_buffer[index] |= (1 << bit);
-	} else {
-		display_buffer[index] &= ~(1 << bit);
-	}
-}
-
-void oled_draw_scaled_char(char c, int8_t x, uint8_t y, uint8_t scale){
-	if(c < 32 || c > 127) return;
-	const uint8_t *char_data = font_5x7[c - 32];
-
-	for(uint8_t col = 0; col < 5; col++){
-		uint8_t col_data = char_data[col];
-		
-		for(uint8_t row = 0; row < 7; row++){
-			if(col_data & (1 << row)){
-				for(uint8_t sx = 0; sx < scale; sx++){
-					for(uint8_t sy = 0; sy < scale; sy++){
-						uint8_t pixel_x = x + (col * scale) +sx;
-						uint8_t pixel_y = y + (row * scale) + sy;
-
-						set_pixel(pixel_x, pixel_y, true);
-					}
-				}
-			}
-		}
-	}
-}
 
 void oled_draw_string(const char *str, uint8_t x, uint8_t y){
 	uint8_t current_x = x;
@@ -336,47 +302,57 @@ void oled_draw_time(const char *time_str){
 	oled_draw_string(time_str, x_pos, 0);
 }
 
-void oled_draw_weather_item(weather_response_t forecast){
-	oled_cmd(0xB0 + 7);
-	oled_cmd(0x00);
-	oled_cmd(0x10);
-
-	for(int i = 0; i < 128; i++){
-		oled_data(0x00);
-	}
-	char datetime[20];
-	get_datetime_from_timestamp(forecast.dt, datetime, sizeof(datetime));
-	
-	oled_draw_string(datetime, 0, 56);
+void oled_clear_buffer(void){
+	memset(display_buffer, 0, 1024);
 }
 
+static void set_pixel(uint8_t x, uint8_t y, bool on) {
+	if(x >= 128 || y >= 64) return;
 
-void oled_weather_icon(uint8_t icon_type) {
-	static const uint8_t icon_sunny[8] = {
-		0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-	};
+	uint8_t page = y / 8;
+	uint8_t bit = y % 8;
+	uint16_t index = page * 128 + x;
 
-	const uint8_t *icon_data;
-	
-	switch(icon_type){
-		case 0: 
-			icon_data = icon_sunny; 
-			break;
-		default: 
-			icon_data = icon_sunny;
-			break;
+	if(on){
+		display_buffer[index] |= (1 << bit);
+	} else {
+		display_buffer[index] &= ~(1 << bit);
 	}
+}
 
-	for(uint8_t page = 0; page < 2; page++){
-		oled_cmd(0xB0 + page);
-		
-		oled_cmd(0x00 + (112 & 0x0F));
-		oled_cmd(0x10 + ((112 >> 4) & 0x0F));
+void oled_draw_char_buffered(const char c, uint8_t x, uint8_t y){
+	if(c < 32 || c > 127) return;
 
-		for(uint8_t col = 0; col < 6; col++){
-			oled_data(icon_data[page * 4 + col]);
+	const uint8_t *char_data = font_5x7[c - 32];
+
+	for(int col = 0; col < 5; col++){
+		uint8_t col_data = char_data[col];
+		for(int row = 0; row < 7; row++){
+			if(col_data & (1 << row)){
+				set_pixel(x + col, y + row, true);
+			}
 		}
 	}
 }
 
+void oled_draw_string_buffered(const char *str, uint8_t x, uint8_t y){
+	uint8_t current_x = x;
+	while(*str){
+		oled_draw_char_buffered(*str, current_x, y);
+		current_x += 6;
+		str++;
+	}
+}
 
+void oled_draw_update(void){
+	for(uint8_t page = 0; page < 8; page++){
+		oled_cmd(0xB0 + page);
+		oled_cmd(0x00);
+		oled_cmd(0x10);
+
+		for(uint8_t col = 0; col < 128; col++){
+			uint16_t index = page * 128 + col;
+			oled_data(display_buffer[index]);
+		}
+	}
+}

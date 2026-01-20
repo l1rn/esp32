@@ -127,6 +127,8 @@ void mqtt_antminer_start(void){
 }
 
 void oled_draw_miner_info(){
+	oled_clear_buffer();
+
 	char rate_avg[12];
 	sprintf(rate_avg, "%d", (int)miner_data.rate_avg);
 	char hashrate[64];
@@ -143,25 +145,26 @@ void oled_draw_miner_info(){
 	snprintf(chain_temperature, sizeof(chain_temperature), 
 			"IN: %d~C / OUT: %d~C", chtemp_in / 3, chtemp_out / 3);
 	int y = 10;
-	oled_draw_string(hashrate, 0, y);
-	// oled_draw_string(chain_temperature, 0, 22);
+	oled_draw_string_buffered(hashrate, 0, y);
+	// oled_draw_string(chain_temperature, 0, 22);	
 	y += 11;
+
+	char fans[64] = "F:";
+	int offset = strlen(fans);
+	// for(int i = 0; i < miner_data.fan_num && i < 4; i++){
+	//	offset += snprintf(fans + offset, sizeof(fans) - offset, "%d/", miner_data.fan_speed[i]);
+	//}
+	//oled_draw_string(fans, 0, y);
+	//y += 11;
 	for(int i = 0; i < miner_data.chain_num && i < 3; i++){
-		char chain_info[64];
+		char chain_info[128];
 		snprintf(chain_info, sizeof(chain_info), 
 				"%d:%d/%d~ %d~ E:%d", i, (int)miner_data.chains[i].rate_real, 
 				miner_data.chains[i].temp_in_avg, miner_data.chains[i].temp_out_avg,
 				miner_data.chains[i].hw_errors);
-		oled_draw_string(chain_info, 0, y);
+		oled_draw_string_buffered(chain_info, 0, y);
 		y += 11;
 	}
-
-	char fans[64] = "FANS: ";
-	int offset = strlen(fans);
-	for(int i = 0; i < miner_data.fan_num && i < 4; i++){
-		offset += snprintf(fans + offset, sizeof(fans) - offset, "%d /", miner_data.fan_speed[i]);
-	}
 	
-	y += 11;
-	oled_draw_string(fans, 0, y);
+	oled_draw_update();
 }
