@@ -149,13 +149,6 @@ void oled_draw_miner_info(){
 	// oled_draw_string(chain_temperature, 0, 22);	
 	y += 11;
 
-	char fans[64] = "F:";
-	int offset = strlen(fans);
-	// for(int i = 0; i < miner_data.fan_num && i < 4; i++){
-	//	offset += snprintf(fans + offset, sizeof(fans) - offset, "%d/", miner_data.fan_speed[i]);
-	//}
-	//oled_draw_string(fans, 0, y);
-	//y += 11;
 	for(int i = 0; i < miner_data.chain_num && i < 3; i++){
 		char chain_info[128];
 		snprintf(chain_info, sizeof(chain_info), 
@@ -165,6 +158,12 @@ void oled_draw_miner_info(){
 		oled_draw_string_buffered(chain_info, 0, y);
 		y += 11;
 	}
-	
+
+	char fans[64] = "F:";
+	int offset = strlen(fans);
+	for(int i = 0; i < miner_data.fan_num && i < 4; i++){
+		offset += snprintf(fans + offset, sizeof(fans) - offset, "%d/", miner_data.fan_speed[i]);
+	}
+	oled_draw_string_buffered(fans, 0, y);
 	oled_draw_update();
 }
