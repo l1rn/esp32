@@ -4,14 +4,13 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-#include "esp_event.h"
-#include "esp_netif.h"
 
 #include "antminer.h"
 #include "http_handler.h"
 #include "wifi.h"
 #include "i2c_display.h"
 #include "ntp_time.h"
+#include "process_manager.h"
 
 #define LED_PIN 2
 
@@ -20,10 +19,6 @@ static const char *TAG = "MAIN";
 void app_main(void) {
 	vTaskDelay(pdMS_TO_TICKS(1000));
 
-	gpio_reset_pin(LED_PIN);
-	gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
-	gpio_set_level(LED_PIN, 0);
-	
 	i2c_procedure();
 	if(oled_init() != ESP_OK){
 		ESP_LOGE(TAG, "Failed to initialize the display");
@@ -39,7 +34,6 @@ void app_main(void) {
 	}
 
 	ESP_LOGI(TAG, "Wifi connected!");
-	gpio_set_level(LED_PIN, 1);
 	
 	// delay before connection & ntp init
 	vTaskDelay(pdMS_TO_TICKS(2000));
@@ -84,10 +78,10 @@ void app_main(void) {
 			ESP_LOGI(TAG, "temp: %s", temp);
 		}
 		if(antminer_counter % 20 == 0){
-//			oled_draw_miner_info();
-			oled_draw_digit('2', 0, 0);
-			oled_draw_digit('1', 18, 0);
-			oled_draw_digit('4', 0, 26);
+			oled_draw_miner_info();
+	//		oled_draw_digit('2', 0, 0);
+	//		oled_draw_digit('1', 18, 0);
+	//		oled_draw_digit('4', 0, 26);
 		}
 		weather_counter++;
 		localtime_counter++;

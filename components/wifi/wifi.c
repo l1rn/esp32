@@ -1,11 +1,30 @@
-#include "wifi.h"
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
+#include "esp_event.h"
 #include "nvs_flash.h"
+#include "reges.h"
+
+#include "colorize.h"
+#include "wifi.h"
 
 #define SSID CONFIG_WIFI_SSID
 #define PASS CONFIG_WIFI_PASSWORD
+
+#define DEFAULT_SCAN_LIST_SIZE 32
+
 static const char *TAG = "WIFI";
+
+#ifdef USE_CHANNEL_BITMAP
+static void array_2_channel_bitmap(const uint8_t channel_list[], const uint8_t channel_list_size, wifi_scan_config_t *scan_config) {
+	for(uint8_t i = 0; i < channel_list_size; i++) {
+		uint8_t channel = channel_list[i];
+		scan_config->channel_bitmap.ghz_2_channels |= (1 << channel);
+	}
+}
+#endif // USE_CHANNEL_BITMAP
 
 esp_err_t wifi_init(void) {
 	esp_err_t ret = nvs_flash_init();
@@ -27,13 +46,18 @@ esp_err_t wifi_init(void) {
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi));
 	ESP_ERROR_CHECK(esp_wifi_start());
-	ESP_ERROR_CHECK(esp_wifi_connect());
 
-	ESP_LOGI(TAG, "wifi inited");
+	c_printf(LGBL_WHT, "\nWifi initialized\n");
+
 	return ESP_OK;
+}
+
+void wifi_start(void){
 }
 
 bool wifi_is_connected(void){
 	wifi_ap_record_t ap;
 	return esp_wifi_sta_get_ap_info(&ap) == ESP_OK;
 }
+
+

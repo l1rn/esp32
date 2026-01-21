@@ -9,9 +9,7 @@ idf_component_register(
 		ntp_time
 		i2c_display
 		fonts
+		process_manager
 		esp_wifi 
-		driver 
 		esp_rom 
-	PRIV_REQUIRES 
-		esp_driver_gpio 
 )
