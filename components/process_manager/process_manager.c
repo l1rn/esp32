@@ -50,10 +50,12 @@ void wifi_ntp_start(void){
 }
 
 void main_loop(void){
+
+	wifi_connect();
 	while(!wifi_is_connected()){
 		ESP_LOGI(TAG, "Connecting to Wi-Fi...");
-		wifi_connect();
 		gpio_set_level(LED_PIN, 0);
+		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 
 	wifi_ntp_start();
@@ -66,14 +68,14 @@ void main_loop(void){
 		if(wifi_is_connected()){
 			gpio_set_level(LED_PIN, 1);
 		}
-		if(display_timer % 10 == 0){
+		if(++display_timer >= 10){
 			oled_draw_time(get_current_time_str());
+			display_timer = 0;
 		}
-		if(antminer_timer % 50 == 0) {
+		if(++antminer_timer >= 50) {
 			oled_draw_miner_info();
+			antminer_timer = 0;
 		}
-		display_timer++;
-		antminer_timer++;
 
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
