@@ -9,6 +9,7 @@ typedef uint16_t u16;
 typedef uint8_t u8;
 
 void wifi_init(void);
+void wifi_cleanup(void);
 void wifi_scan_init(void);
 
 void wifi_scan_single_time(

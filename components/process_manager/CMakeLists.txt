@@ -6,5 +6,6 @@ idf_component_register(
 		wifi
 		ntp_time
 		i2c_display
+		antminer
 	PRIV_REQUIRES esp_driver_gpio
 )

@@ -8,6 +8,7 @@
 #include "wifi.h"
 #include "ntp_time.h"
 #include "i2c_display.h"
+#include "antminer.h"
 
 #define LED_PIN 2
 
@@ -21,8 +22,7 @@ void gpio_init(void){
 
 void wifi_process(void){
 	wifi_init();
-	wifi_scan_init();
-	
+	wifi_scan_init();	
 }
 
 void display_process(void){
@@ -33,6 +33,7 @@ void display_process(void){
 		return;
 	}
 }
+
 
 void wifi_ntp_start(void){
 	init_ntp_time();
@@ -45,5 +46,35 @@ void wifi_ntp_start(void){
 
 	if(is_time_synced()){
 		printf("Time: %s\n", get_current_time_str());
+	}
+}
+
+void main_loop(void){
+	while(!wifi_is_connected()){
+		ESP_LOGI(TAG, "Connecting to Wi-Fi...");
+		wifi_connect();
+		gpio_set_level(LED_PIN, 0);
+	}
+
+	wifi_ntp_start();
+	mqtt_antminer_start();
+	u32 display_timer = 0;
+	u32 antminer_timer = 0;
+	char time[9];
+
+	while(1){
+		if(wifi_is_connected()){
+			gpio_set_level(LED_PIN, 1);
+		}
+		if(display_timer % 10 == 0){
+			oled_draw_time(get_current_time_str());
+		}
+		if(antminer_timer % 50 == 0) {
+			oled_draw_miner_info();
+		}
+		display_timer++;
+		antminer_timer++;
+
+		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 }

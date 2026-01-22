@@ -21,5 +21,5 @@ void app_main(void) {
 	
 	vTaskDelay(pdMS_TO_TICKS(2000));
 	
-
+	main_loop();
 }

@@ -116,6 +116,8 @@ void wifi_scan_init(void){
 		wifi_scan_single_time(ap_count, number, ap_info);
 		vTaskDelay(15000 / portTICK_PERIOD_MS);
 	}
+#else 
+	wifi_scan_single_time(ap_count, number, ap_info);
 #endif // NETWORK_USE_SCAN_LOOP
 }
 
@@ -128,9 +130,13 @@ void wifi_connect(void){
 	c_print(LGBL_WHT, "\nWifi connected\n");
 }
 
+void wifi_cleanup(void){
+	esp_wifi_disconnect();
+	esp_wifi_stop();
+	esp_wifi_deinit();
+}
+
 bool wifi_is_connected(void){
 	wifi_ap_record_t ap;
 	return esp_wifi_sta_get_ap_info(&ap) == ESP_OK;
 }
-
-
