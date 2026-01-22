@@ -12,6 +12,6 @@
 
 #define LGBL_WHT "\033[0;104m"
 
-#define c_print(color, ...) printf(color __VA_ARGS__, RST)
+#define c_print(color, format, ...) printf(color format "%s", ##__VA_ARGS__, RST)
 
 #endif // COLORS_H

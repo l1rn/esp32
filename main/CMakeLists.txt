@@ -10,6 +10,5 @@ idf_component_register(
 		i2c_display
 		fonts
 		process_manager
-		esp_wifi 
 		esp_rom 
 )
