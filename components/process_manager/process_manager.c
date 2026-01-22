@@ -22,10 +22,7 @@ void gpio_init(void){
 void wifi_process(void){
 	wifi_init();
 	wifi_scan_init();
-	u8
-	while(1){
-
-	}
+	
 }
 
 void display_process(void){

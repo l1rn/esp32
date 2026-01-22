@@ -93,24 +93,30 @@ void wifi_scan_single_time(u16 ap_count, u16 number, wifi_ap_record_t ap_info[DE
 
 	printf("\n");
 	char res[32];
-	c_print(CYN, "+===============================================+\n");
-	c_print(CYN, "| SSID       | RSSI                   | CHANNEL |\n");
-	c_print(CYN, "=================================================\n");
+	c_print(CYN, "+====================================================+\n");
+	c_print(CYN, "| SSID             | RSSI                  | CHANNEL |\n");
+	c_print(CYN, "=====================================================\n");
 	for(int i = 0; i < number; i++){
 		get_wifi_strength(ap_info[i].rssi, res);
-		c_print(CYN, "| %s | (%d)%s     | 0     | %d    |\n", 
+		c_print(CYN, "| %s  (%d)%s  %d     |\n", 
 				ap_info[i].ssid, ap_info[i].rssi, res, ap_info[i].primary);
 	}
-	c_print(CYN, "+===============================================+\n");
+	c_print(CYN, "+====================================================+\n");
 }
 
+// TODO: make a value that will collect info & add checker for security method
 void wifi_scan_init(void){
 	u16 number = DEFAULT_SCAN_LIST_SIZE;
 	wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
 	u16 ap_count = 0;
 	memset(ap_info, 0, sizeof(ap_info));
 
-	wifi_scan_single_time(ap_count, number, ap_info);
+#ifdef NETWORK_USE_SCAN_LOOP
+	while(1){
+		wifi_scan_single_time(ap_count, number, ap_info);
+		vTaskDelay(15000 / portTICK_PERIOD_MS);
+	}
+#endif // NETWORK_USE_SCAN_LOOP
 }
 
 void wifi_connect(void){
