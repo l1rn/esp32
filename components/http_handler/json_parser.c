@@ -1,4 +1,9 @@
 #include "json_parser.h"
+#include "esp_log.h"
+#include <stdio.h>
+#include <string.h>
+
+static const char *TAG = "JSON_PARSER";
 
 int parse_antminer_json(const char *root, miner_response_t *data){
 	cJSON *json = cJSON_Parse(root);
@@ -89,9 +94,13 @@ weather_response_t parse_single_forecast_json(cJSON *item){
 	cJSON *wind = cJSON_GetObjectItem(item, "wind");
 	cJSON *wind_speed = cJSON_GetObjectItem(wind, "speed");			
 
-	if(cJSON_IsString(dt_txt) && cJSON_IsNumber(dt_tm) && cJSON_IsNumber(temp) 
+	if(cJSON_IsNumber(dt_tm) && cJSON_IsNumber(temp) 
 			&& cJSON_IsString(weather_main) && cJSON_IsNumber(wind_speed)){
-		strcpy(forecast.datetime, dt_txt->valuestring);
+		if(cJSON_IsString(dt_txt)){
+			strcpy(forecast.datetime, dt_txt->valuestring);
+		} else {
+			strcpy(forecast.datetime, "yyyy-mm-dd");
+		}
 		strcpy(forecast.weather, weather_main->valuestring);
 		forecast.dt = dt_tm->valueint;
 		forecast.wind_speed = wind_speed->valuedouble;
@@ -104,11 +113,11 @@ weather_response_t parse_single_forecast_json(cJSON *item){
 weather_response_t parse_single_forecast_string(char *data){
 	cJSON *item = cJSON_Parse(data);
 	if(!item){
-		c_print(RED, "\nUnable to parse single forecase item via string");
+		ESP_LOGE(TAG, "\nUnable to parse single forecase item via string");
 		weather_response_t empty = {0};
 		return empty;
 	}
-	weather_response_t result = weather_response_t(item);	
+	weather_response_t result = parse_single_forecast_json(item);
 	cJSON_Delete(item);
 	return result;
 }
@@ -133,13 +142,13 @@ int parse_weather_forecast_json(cJSON *json, weather_response_t forecasts[], int
 }
 
 int parse_weather_forecast_string(char *data, weather_response_t forecasts[], int max_forecasts){
-	cJSON json = cJSON_Parse(data);
+	cJSON *json = cJSON_Parse(data);
 	if(json == NULL){
-		c_print(TAG, "Unable to parse weather forecast through the string!");
+		ESP_LOGE(TAG, "Unable to parse weather forecast through the string!");
 		return 0;
 	}
 	
-	int fc_count = parse_single_forecast(json, forecasts, max_forecasts);
+	int fc_count = parse_weather_forecast_json(json, forecasts, max_forecasts);
 	cJSON_Delete(json);
 	return fc_count;
 }

@@ -67,13 +67,7 @@ weather_response_t get_weather_current(void){
 	esp_err_t res = esp_http_client_perform(client);
 	if(res == ESP_OK) {
 		weather_response_t w = parse_single_forecast(response.data);
-		ESP_LOGI(TAG, "current_weather received with the sizeof: %d", sizeof(w));	
-		weather.datetime = w.datetime;
-		weather.weather = w.weather;
-		weather.temp = w.temp;
-		weather.feels_like = w.feels_life;
-		weather.wind_speed = w.wind_speed;
-		weather.dt = w.dt;
+		weather = w;
 	}
 	esp_http_client_cleanup(client);
 	free(response.data);

@@ -65,18 +65,31 @@ void main_loop(void){
 //	mqtt_antminer_start();
 	u32 display_timer = 0;
 	u32 antminer_timer = 0;
-	char time[9];
 
+	oled_clear();
 	while(1){
 		
-		if(++display_timer >= 10){
-			oled_draw_time(get_current_time_str());
-			weather_response_t w = get_current_weather();
-			c_print(YEL, "Weather temp: %d", w.temp);
+		if(++display_timer >= 50){
+			oled_clear_buffer();
+			oled_draw_string_buffered(get_current_time_str(), 0, 0);
+			weather_response_t w = get_weather_current();
+
+			char temperature[32];
+			char dt[24];
+			char wind[24];
+			char desc[128];
+			snprintf(temperature, sizeof(temperature), "tp: %d~C (%d~C)", w.temp, w.feels_like);
+			snprintf(dt, sizeof(dt), "dt: %d", w.dt);
+			snprintf(wind, sizeof(wind), "wd: %f m/s", w.wind_speed);
+			oled_draw_string_buffered(temperature, 0, 16);
+			oled_draw_string_buffered(wind, 0, 28);
+			oled_draw_string_buffered(desc, 0, 40);
+			oled_draw_string_buffered(w.weather, 0, 52);
+			oled_draw_update();
 			display_timer = 0;
 		}
 		if(++antminer_timer >= 50) {
-			get_miner_info();
+			//get_miner_info();
 //			oled_draw_miner_info();
 			antminer_timer = 0;
 		}
