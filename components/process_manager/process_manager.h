@@ -7,5 +7,6 @@ void display_process(void);
 void wifi_ntp_start(void);
 
 void main_loop(void);
+void project_cleanup(void);
 
 #endif // PROCESS_MANAGER_H

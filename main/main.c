@@ -10,6 +10,7 @@
 #include "i2c_display.h"
 #include "ntp_time.h"
 #include "process_manager.h"
+#include "button.h"
 
 static const char *TAG = "MAIN";
 
@@ -20,6 +21,6 @@ void app_main(void) {
 	wifi_process();	
 	
 	vTaskDelay(pdMS_TO_TICKS(2000));
-	
 	main_loop();
+	project_cleanup();
 }

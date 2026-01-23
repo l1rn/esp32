@@ -7,11 +7,10 @@
 #include "regex.h"
 #include "esp_err.h"
 
-#include "colorize.h"
 #include "wifi.h"
 
-#define SSID CONFIG_WIFI_SSID
-#define PASS CONFIG_WIFI_PASSWORD
+#define SSID CONFIG_WIFI_SSID_3
+#define PASS CONFIG_WIFI_PASSWORD_3
 
 #ifdef CONFIG_NETWORK_USE_SCAN_CHANNEL_BITMAP
 #define USE_CHANNEL_BITMAP 1
@@ -22,24 +21,12 @@ static u8 channel_list[CHANNEL_LIST_SIZE] = {1,6,11};
 static const char *TAG = "WIFI";
 
 static void get_wifi_strength(int8_t rssi, char *result){
-	if(rssi <= -50){
-		strcpy(result, "Excellent (█████)");
-	} 
-	if(rssi <= -60) {
-		strcpy(result, "Good (████ )");
-	} 
-	if(rssi <= -75) {
-		strcpy(result, "Fair (███  )");
-	} 
-	if(rssi <= -85){
-		strcpy(result, "Poor (██   )");
-	}
-	if(rssi <= -90){
-		strcpy(result, "Very poor (█    )");
-	}
-	else {
-		result = "Unknown";
-	}
+	if(rssi <= -50)	strcpy(result, "Excellent (█████)"); 
+	if(rssi <= -60)	strcpy(result, "Good (████ )");
+	if(rssi <= -75) strcpy(result, "Fair (███  )");
+	if(rssi <= -85) strcpy(result, "Poor (██   )");
+	if(rssi <= -90) strcpy(result, "Very poor (█    )");
+	else result = "Unknown";
 }
 
 #ifdef USE_CHANNEL_BITMAP

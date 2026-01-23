@@ -3,16 +3,8 @@
 
 #define MAX_FORECASTS 8
 
-typedef struct {
-	char datetime[20];
-	char weather[32];
-	int temp;
-	int feels_like;
-	double wind_speed;
-	int dt;
-} weather_response_t;
-
 void get_weather_15hours(weather_response_t forecasts[], int max_forecasts);
 void get_weather_current(weather_response_t *forecast);
+void get_miner_info(void);
 
 #endif // WEATHER_H

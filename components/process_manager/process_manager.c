@@ -5,6 +5,9 @@
 #include "freertos/task.h"
 
 #include "process_manager.h"
+#include "http_handler.h"
+#include "button.h"
+#include "fonts.h"
 #include "wifi.h"
 #include "ntp_time.h"
 #include "i2c_display.h"
@@ -57,26 +60,32 @@ void main_loop(void){
 		gpio_set_level(LED_PIN, 0);
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
-
+	gpio_set_level(LED_PIN, 1);
 	wifi_ntp_start();
-	mqtt_antminer_start();
+//	mqtt_antminer_start();
 	u32 display_timer = 0;
 	u32 antminer_timer = 0;
 	char time[9];
 
 	while(1){
-		if(wifi_is_connected()){
-			gpio_set_level(LED_PIN, 1);
-		}
+		
 		if(++display_timer >= 10){
 			oled_draw_time(get_current_time_str());
 			display_timer = 0;
 		}
 		if(++antminer_timer >= 50) {
+			get_miner_info();
 			oled_draw_miner_info();
 			antminer_timer = 0;
 		}
 
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
+}
+
+
+void project_cleanup(void){
+	wifi_cleanup();
+	oled_clear();
+	i2c_cleanup();
 }

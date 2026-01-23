@@ -9,11 +9,14 @@
 #include "freertos/FreeRTOS.h"
 
 #include "http_handler.h"
+#include "antminer.h"
 
-#include "cJSON.h"
 
 #define API_KEY CONFIG_WEATHER_API_KEY
 #define CITY	CONFIG_WEATHER_CITY
+
+#define ANTMINER_IP CONFIG_ANTMINER_IP_2 
+#define MAX_HTTP_OUTPUT_BUFFER 2048
 
 static const char *TAG = "HTTP_HANDLER";
 
@@ -22,60 +25,16 @@ typedef struct {
 	size_t size;
 } http_response_t;
 
-weather_response_t parse_single_forecast(cJSON *item){
-	weather_response_t forecast = {0};
-
-	cJSON *dt_txt = cJSON_GetObjectItem(item, "dt_txt");
-	cJSON *dt_tm = cJSON_GetObjectItem(item, "dt");
-
-	cJSON *main = cJSON_GetObjectItem(item, "main");
-	cJSON *temp = cJSON_GetObjectItem(main, "temp");
-	cJSON *feels_like = cJSON_GetObjectItem(main, "feels_like");
-	
-	cJSON *weather = cJSON_GetObjectItem(item, "weather");
-	cJSON *weather_item = cJSON_GetArrayItem(weather, 0);
-	cJSON *weather_main = cJSON_GetObjectItem(weather_item, "description");
-	
-	cJSON *wind = cJSON_GetObjectItem(item, "wind");
-	cJSON *wind_speed = cJSON_GetObjectItem(wind, "speed");			
-
-	if(cJSON_IsString(dt_txt) && cJSON_IsNumber(dt_tm) && cJSON_IsNumber(temp) 
-			&& cJSON_IsString(weather_main) && cJSON_IsNumber(wind_speed)){
-		strcpy(forecast.datetime, dt_txt->valuestring);
-		strcpy(forecast.weather, weather_main->valuestring);
-		forecast.dt = dt_tm->valueint;
-		forecast.wind_speed = wind_speed->valuedouble;
-		forecast.feels_like = (int)feels_like->valuedouble;
-		forecast.temp = (int)temp->valuedouble;
-	}
-	return forecast;
-}
-
-int parse_weather_forecast(cJSON *json, weather_response_t forecasts[], int max_forecasts){
-	cJSON *list = cJSON_GetObjectItem(json, "list");
-	if(!cJSON_IsArray(list)){
-		ESP_LOGE(TAG, "No 'list' array found");
-		return 0;
-	}
-
-	int list_size = cJSON_GetArraySize(list);
-	int fc_count = 0;	
-	
-	int items_to_parse = (list_size < max_forecasts) ? list_size : max_forecasts;
-
-	for(int i = 0; i < list_size; i++){
-		cJSON *item = cJSON_GetArrayItem(list, i);
-		forecasts[fc_count++] = parse_single_forecast(item);
-	}
-	return fc_count;
-}
-
 esp_err_t http_event_handler(esp_http_client_event_t *evt){
+	static char *output_buffer;
+	static int output_len;
 	http_response_t *resp = (http_response_t *)evt->user_data;
 	
 	if(evt->event_id == HTTP_EVENT_ON_DATA){
+		ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);	
 		resp->data = realloc(resp->data, resp->size + evt->data_len + 1);
 		memcpy(resp->data + resp->size, evt->data, evt->data_len);
+	
 		resp->size += evt->data_len;
 		resp->data[resp->size] = '\0';
 	}
@@ -107,16 +66,10 @@ void get_weather_current(weather_response_t *forecast){
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	esp_err_t res = esp_http_client_perform(client);
 	if(res == ESP_OK) {
-		cJSON *json = cJSON_Parse(response.data);
-		if(json == NULL){
-			ESP_LOGE(TAG, "Error parsing json");
-			return;
-		} else {
-			weather_response_t tmp = parse_single_forecast(json);
-			forecast->temp = tmp.temp;
-			forecast->feels_like = tmp.feels_like;
-			cJSON_Delete(json);
-		}
+	#ifdef USE_STRING_PARSE
+		parse_single_forecast(response.data);
+	#endif // USE_STRING_PARSE
+
 	}
 	esp_http_client_cleanup(client);
 	free(response.data);
@@ -164,4 +117,36 @@ void get_weather_15hours(weather_response_t forecasts[], int max_forecasts){
 	}
 	esp_http_client_cleanup(client);
 	free(response.data);
+}
+
+void get_miner_info(miner_response_t *miner_data){
+	http_response_t data = { .data = NULL, .size = 0 };
+	char url[256];
+	snprintf(url, sizeof(url), "http://root:root@%s/cgi-bin/stats.cgi", 
+			ANTMINER_IP);
+	esp_http_client_config_t config = {
+		.url = url,
+		.event_handler = http_event_handler,
+		.user_data = &data,
+		.auth_type = HTTP_AUTH_TYPE_DIGEST,
+	};
+
+	esp_http_client_handle_t client = esp_http_client_init(&config);
+	esp_err_t err = esp_http_client_perform(client);
+
+	if(err == ESP_OK){
+		ESP_LOGI(TAG, "http md5 digest auth status = %d, content_length = %d",
+				esp_http_client_get_status_code(client),
+				esp_http_client_get_content_length(client));
+		c_print(RED, "RESPONSE DATA SIZE: %d", data.size);
+		cJSON *json = cJSON_Parse(data.data);
+		if(json != NULL){
+			parse_antminer_json(json, miner_data);
+			cJSON_Delete(json);
+		}
+	} else {
+		ESP_LOGE(TAG, "Error performing http request: %s", esp_err_to_name(err));
+	}
+
+	esp_http_client_cleanup(client);
 }
