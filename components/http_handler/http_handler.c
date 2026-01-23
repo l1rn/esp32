@@ -11,7 +11,6 @@
 #include "http_handler.h"
 #include "antminer.h"
 
-
 #define API_KEY CONFIG_WEATHER_API_KEY
 #define CITY	CONFIG_WEATHER_CITY
 
@@ -42,7 +41,8 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt){
 	return ESP_OK;
 }
 
-void get_weather_current(weather_response_t *forecast){
+weather_response_t get_weather_current(void){
+	weather_response_t weather = {0};
 	http_response_t response = {
 		.data = NULL,
 		.size = 0
@@ -66,13 +66,18 @@ void get_weather_current(weather_response_t *forecast){
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	esp_err_t res = esp_http_client_perform(client);
 	if(res == ESP_OK) {
-	#ifdef USE_STRING_PARSE
-		parse_single_forecast(response.data);
-	#endif // USE_STRING_PARSE
-
+		weather_response_t w = parse_single_forecast(response.data);
+		ESP_LOGI(TAG, "current_weather received with the sizeof: %d", sizeof(w));	
+		weather.datetime = w.datetime;
+		weather.weather = w.weather;
+		weather.temp = w.temp;
+		weather.feels_like = w.feels_life;
+		weather.wind_speed = w.wind_speed;
+		weather.dt = w.dt;
 	}
 	esp_http_client_cleanup(client);
 	free(response.data);
+	return weather;
 }
 
 void get_weather_15hours(weather_response_t forecasts[], int max_forecasts){
@@ -99,20 +104,14 @@ void get_weather_15hours(weather_response_t forecasts[], int max_forecasts){
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	esp_err_t 		 res	= esp_http_client_perform(client);
 	if(res == ESP_OK){
-		cJSON *json = cJSON_Parse(response.data);
-		if(json == NULL){
-			printf("Error parsing JSON");
-		} else {
-			int count = parse_weather_forecast(json, forecasts, max_forecasts);
-			for (int i = 0; i < count; i++) {
-			    ESP_LOGI("WEATHER", "%s: %s, %d°C (feels %d), wind %d m/s",
-				     forecasts[i].datetime,
-				     forecasts[i].weather,
-				     forecasts[i].temp,
-				     forecasts[i].feels_like,
-				     forecasts[i].wind_speed);
-			}
-			cJSON_Delete(json);
+		int count = parse_weather_forecast(response.data, forecasts, max_forecasts);
+		for (int i = 0; i < count; i++) {
+		    ESP_LOGI("WEATHER", "%s: %s, %d°C (feels %d), wind %d m/s",
+			     forecasts[i].datetime,
+			     forecasts[i].weather,
+			     forecasts[i].temp,
+			     forecasts[i].feels_like,
+			     forecasts[i].wind_speed);
 		}
 	}
 	esp_http_client_cleanup(client);
@@ -139,11 +138,6 @@ void get_miner_info(miner_response_t *miner_data){
 				esp_http_client_get_status_code(client),
 				esp_http_client_get_content_length(client));
 		c_print(RED, "RESPONSE DATA SIZE: %d", data.size);
-		cJSON *json = cJSON_Parse(data.data);
-		if(json != NULL){
-			parse_antminer_json(json, miner_data);
-			cJSON_Delete(json);
-		}
 	} else {
 		ESP_LOGE(TAG, "Error performing http request: %s", esp_err_to_name(err));
 	}

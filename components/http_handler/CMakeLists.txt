@@ -1,6 +1,7 @@
 idf_component_register(
 	SRCS 
-		"http_handler.c" "json_parcer.c"
+		"http_handler.c" 
+		"json_parser.c"
 	INCLUDE_DIRS 
 		"."
 	REQUIRES 

@@ -3,8 +3,10 @@
 
 #define MAX_FORECASTS 8
 
+#include "json_parser.h"
+
 void get_weather_15hours(weather_response_t forecasts[], int max_forecasts);
-void get_weather_current(weather_response_t *forecast);
+weather_response_t get_weather_current(void);
 void get_miner_info(void);
 
 #endif // WEATHER_H

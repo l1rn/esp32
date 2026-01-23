@@ -6,6 +6,6 @@ idf_component_register(
 	REQUIRES 
 		cJSON 
 		i2c_display 
-		json_parser
+		http_handler
 		mqtt		
 )

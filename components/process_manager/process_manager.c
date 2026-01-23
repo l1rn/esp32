@@ -71,11 +71,13 @@ void main_loop(void){
 		
 		if(++display_timer >= 10){
 			oled_draw_time(get_current_time_str());
+			weather_response_t w = get_current_weather();
+			c_print(YEL, "Weather temp: %d", w.temp);
 			display_timer = 0;
 		}
 		if(++antminer_timer >= 50) {
 			get_miner_info();
-			oled_draw_miner_info();
+//			oled_draw_miner_info();
 			antminer_timer = 0;
 		}
 

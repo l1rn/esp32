@@ -72,7 +72,7 @@ int parse_antminer_json(const char *root, miner_response_t *data){
 	return 0;
 }
 
-static weather_response_t parse_single_forecast_impl(cJSON *item){
+weather_response_t parse_single_forecast_json(cJSON *item){
 	weather_response_t forecast = {0};
 
 	cJSON *dt_txt = cJSON_GetObjectItem(item, "dt_txt");
@@ -101,24 +101,19 @@ static weather_response_t parse_single_forecast_impl(cJSON *item){
 	return forecast;
 }
 
-#ifdef USE_STRING_PARSE
-weather_response_t parse_single_forecast(char *data){
+weather_response_t parse_single_forecast_string(char *data){
 	cJSON *item = cJSON_Parse(data);
 	if(!item){
 		c_print(RED, "\nUnable to parse single forecase item via string");
-		return NULL;
+		weather_response_t empty = {0};
+		return empty;
 	}
 	weather_response_t result = weather_response_t(item);	
 	cJSON_Delete(item);
 	return result;
 }
-#else 
-weather_response_t parse_single_forecast(cJSON *item){
-	parse_single_forecast_impl(json);
-}
-#endif
 
-int parse_weather_forecast(char *root, weather_response_t forecasts[], int max_forecasts){
+int parse_weather_forecast_json(cJSON *json, weather_response_t forecasts[], int max_forecasts){
 	cJSON *list = cJSON_GetObjectItem(json, "list");
 	if(!cJSON_IsArray(list)){
 		ESP_LOGE(TAG, "No 'list' array found");
@@ -130,9 +125,23 @@ int parse_weather_forecast(char *root, weather_response_t forecasts[], int max_f
 	
 	int items_to_parse = (list_size < max_forecasts) ? list_size : max_forecasts;
 
-	for(int i = 0; i < list_size; i++){
+	for(int i = 0; i < items_to_parse; i++){
 		cJSON *item = cJSON_GetArrayItem(list, i);
 		forecasts[fc_count++] = parse_single_forecast(item);
 	}
 	return fc_count;
 }
+
+int parse_weather_forecast_string(char *data, weather_response_t forecasts[], int max_forecasts){
+	cJSON json = cJSON_Parse(data);
+	if(json == NULL){
+		c_print(TAG, "Unable to parse weather forecast through the string!");
+		return 0;
+	}
+	
+	int fc_count = parse_single_forecast(json, forecasts, max_forecasts);
+	cJSON_Delete(json);
+	return fc_count;
+}
+
+

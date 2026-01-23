@@ -1,9 +1,6 @@
 #ifndef ANTMINER_H
 #define ANTMINER_H
 
-#define MAX_CHAINS 3
-#define MAX_FANS 4
-
 #include "json_parser.h"
 
 void mqtt_antminer_start(void);

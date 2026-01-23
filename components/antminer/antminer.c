@@ -56,7 +56,7 @@ void mqtt_antminer_start(void){
 	esp_mqtt_client_start(client);
 }
 
-void oled_draw_miner_info(miner_response_t respons = miner_data){
+void oled_draw_miner_info(miner_response_t response){
 	oled_clear_buffer();
 
 	char rate_avg[12];
