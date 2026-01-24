@@ -1,4 +1,3 @@
 #pragma once
 
-void lvgl_port_init(void);
-
+void setup_lvgl_display(void);

@@ -44,6 +44,7 @@ int parse_weather_forecast_json(cJSON *json, weather_response_t forecasts[], int
 int parse_weather_forecast_string(char *data, weather_response_t forecasts[], int max_forecasts);
 
 int parse_antminer_json(const char *root, miner_response_t *data);
+int parse_bitcoin_price(char *data, char *result);
 
 /* GENERICS */
 #define parse_single_forecast(x) _Generic((x), \

@@ -56,6 +56,10 @@ void mqtt_antminer_start(void){
 	esp_mqtt_client_start(client);
 }
 
+miner_response_t get_miner_data(void){
+	return miner_data;
+}
+
 void oled_draw_miner_info(miner_response_t response){
 	oled_clear_buffer();
 
@@ -88,11 +92,16 @@ void oled_draw_miner_info(miner_response_t response){
 		y += 11;
 	}
 
-	char fans[64] = "F:";
-	int offset = strlen(fans);
-	for(int i = 0; i < response.fan_num && i < 4; i++){
-		offset += snprintf(fans + offset, sizeof(fans) - offset, "%d/", response.fan_speed[i]);
+	u32 btc_timer = 0;
+	
+	char bitcoin_price[24];
+	if(++btc_timer >= 30){
+		get_bitcoin_price(bitcoin_price);
+		snprintf(bitcoin_price, sizeof(bitcoin_price), "BTC: %s$", bitcoin_price);
+		btc_timer = 0;
 	}
-	oled_draw_string_buffered(fans, 0, y);
+
+	
+	oled_draw_string_buffered(bitcoin_price, 0, y);
 	oled_draw_update();
 }

@@ -17,7 +17,7 @@ void wifi_scan_single_time(
 		u16 number, 
 		wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE]);
 
-void wifi_connect(void);
+void wifi_init_sta(void);
 bool wifi_is_connected(void);
 
 #endif // WIFI_MODULE_H

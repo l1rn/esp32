@@ -5,5 +5,6 @@
 
 void mqtt_antminer_start(void);
 void oled_draw_miner_info(miner_response_t response);
+miner_response_t get_miner_data(void);
 
 #endif // ANTMINER_H

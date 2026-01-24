@@ -77,6 +77,29 @@ int parse_antminer_json(const char *root, miner_response_t *data){
 	return 0;
 }
 
+int parse_bitcoin_price(char *data, char *result){
+	cJSON *json = cJSON_Parse(data);
+	if (json == NULL){
+		ESP_LOGI(TAG, "Unable to parse bitcoin price");
+		return -1;
+	}
+
+	cJSON *data_obj = cJSON_GetObjectItem(json, "data");
+
+	cJSON *BTC_obj = cJSON_GetObjectItem(data_obj, "BTC");
+	
+	cJSON *quote = cJSON_GetObjectItem(BTC_obj, "quote");
+	cJSON *USD_obj = cJSON_GetObjectItem(quote, "USD");
+	cJSON *price_double = cJSON_GetObjectItem(USD_obj, "price");
+
+	char price[16];
+	sprintf(price, "%d", (int)price_double->valuedouble);
+	strcpy(result, price);
+	
+	cJSON_Delete(json);
+	return 0;
+}
+
 weather_response_t parse_single_forecast_json(cJSON *item){
 	weather_response_t forecast = {0};
 

@@ -15,6 +15,7 @@
 static uint8_t display_buffer[1024];
 
 static const char *TAG = "OLED_DISPLAY";
+
 int check_gpio_pins(void) {
 	ESP_LOGI(TAG, "d21 & d22 (sda & scl) checking...");
 	
@@ -44,7 +45,7 @@ esp_err_t i2c_init(void) {
 		.scl_io_num = SCL_IO,
 		.sda_pullup_en = GPIO_PULLUP_ENABLE,
 		.scl_pullup_en = GPIO_PULLUP_ENABLE,
-		.master.clk_speed = 100000
+		.master.clk_speed = 200000
 	};
 	
 	esp_err_t ret = i2c_param_config(0, &conf);
@@ -105,7 +106,6 @@ void i2c_procedure(void){
 
 	char *scan_result = i2c_scan(); 
 	ESP_LOGI(TAG, "Device status: %s", scan_result);	
-
 }
 
 static void oled_cmd(uint8_t cmd_t){
@@ -372,4 +372,25 @@ void oled_draw_digit(char d, uint8_t x, uint8_t y){
 			oled_data(font_16x24_digits[index][col][p]);
 		}
 	}
+}
+
+void oled_draw_weather(void){
+	oled_clear_buffer();
+	weather_response_t w = get_weather_current();
+	char result[16];
+	get_bitcoin_price(result);
+
+	char temperature[32];
+	char dt[24];
+	char wind[24];
+	char desc[128];
+	snprintf(temperature, sizeof(temperature), "tp: %d~C (%d~C)", w.temp, w.feels_like);
+	snprintf(dt, sizeof(dt), "dt: %d", w.dt);
+	snprintf(wind, sizeof(wind), "wd: %f m/s", w.wind_speed);
+	oled_draw_string_buffered(temperature, 0, 16);
+	oled_draw_string_buffered(wind, 0, 28);
+	oled_draw_string_buffered(dt, 0, 40);
+	oled_draw_string_buffered(result, 0, 52);
+	oled_draw_update();
+
 }

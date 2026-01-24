@@ -6,6 +6,7 @@
 #include "esp_http_client.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_crt_bundle.h"
 #include "freertos/FreeRTOS.h"
 
 #include "http_handler.h"
@@ -16,6 +17,8 @@
 
 #define ANTMINER_IP CONFIG_ANTMINER_IP_2 
 #define MAX_HTTP_OUTPUT_BUFFER 2048
+
+#define MARKET_API_KEY CONFIG_COIN_MARKET_API_KEY 
 
 static const char *TAG = "HTTP_HANDLER";
 
@@ -134,6 +137,30 @@ void get_miner_info(miner_response_t *miner_data){
 		c_print(RED, "RESPONSE DATA SIZE: %d", data.size);
 	} else {
 		ESP_LOGE(TAG, "Error performing http request: %s", esp_err_to_name(err));
+	}
+
+	esp_http_client_cleanup(client);
+}
+
+void get_bitcoin_price(char *result){
+	http_response_t response = { .data = NULL, .size = 0 };
+	esp_http_client_config_t config = {
+		.url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BTC&convert=USD",
+		.event_handler = http_event_handler,
+		.user_data = &response,
+		.crt_bundle_attach = esp_crt_bundle_attach,
+		.method = HTTP_METHOD_GET,
+	};
+	esp_http_client_handle_t client = esp_http_client_init(&config);
+
+	esp_http_client_set_header(client, "X-CMC_PRO_API_KEY", MARKET_API_KEY);
+	esp_http_client_set_header(client, "Accept", "application/json");
+
+	esp_err_t err = esp_http_client_perform(client);
+	if(err == ESP_OK){
+		ESP_LOGI(TAG, "bitcoin requets status code: %d", esp_http_client_get_status_code(client));
+
+		parse_bitcoin_price(response.data, result);
 	}
 
 	esp_http_client_cleanup(client);
