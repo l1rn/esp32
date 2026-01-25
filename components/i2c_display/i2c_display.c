@@ -378,7 +378,6 @@ void oled_draw_weather(void){
 	oled_clear_buffer();
 	weather_response_t w = get_weather_current();
 	char result[16];
-	get_bitcoin_price(result);
 
 	char temperature[32];
 	char dt[24];

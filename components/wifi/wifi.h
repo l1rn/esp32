@@ -5,8 +5,13 @@
 
 #include "esp_wifi.h"
 
-typedef uint16_t u16;
-typedef uint8_t u8;
+typedef struct {
+	const char *ssid;
+	const char *password;
+	int16_t rssi;
+	bool reachable;
+	bool prioritize;
+} wifi_ap_t;
 
 void wifi_init(void);
 void wifi_cleanup(void);

@@ -60,7 +60,7 @@ miner_response_t get_miner_data(void){
 	return miner_data;
 }
 
-void oled_draw_miner_info(miner_response_t response){
+void oled_draw_miner_info(miner_response_t response, char *btc){
 	oled_clear_buffer();
 
 	char rate_avg[12];
@@ -91,17 +91,7 @@ void oled_draw_miner_info(miner_response_t response){
 		oled_draw_string_buffered(chain_info, 0, y);
 		y += 11;
 	}
+	oled_draw_string_buffered(btc, 0, y);
 
-	u32 btc_timer = 0;
-	
-	char bitcoin_price[24];
-	if(++btc_timer >= 30){
-		get_bitcoin_price(bitcoin_price);
-		snprintf(bitcoin_price, sizeof(bitcoin_price), "BTC: %s$", bitcoin_price);
-		btc_timer = 0;
-	}
-
-	
-	oled_draw_string_buffered(bitcoin_price, 0, y);
 	oled_draw_update();
 }

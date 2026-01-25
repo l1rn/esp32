@@ -13,8 +13,6 @@
 
 #include "wifi.h"
 
-#define SSID CONFIG_WIFI_SSID
-#define PASS CONFIG_WIFI_PASSWORD
 #define MAX_RETRY CONFIG_WIFI_MAX_RETRY 
 
 #ifdef CONFIG_NETWORK_USE_SCAN_CHANNEL_BITMAP
@@ -28,9 +26,48 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
 
+#define SSID CONFIG_WIFI_SSID_1
+#define PASS CONFIG_WIFI_PASSWORD_1
+
 static const char *TAG = "WIFI";
 
 static int s_retry_num = 0;
+
+wifi_ap_t wifi_aps[] = {
+#ifdef CONFIG_WIFI_AP_1_ENABLE
+	{
+		.ssid = CONFIG_WIFI_SSID_1,
+		.password = CONFIG_WIFI_PASSWORD_1,
+	#if CONFIG_WIFI_PRIORITIRIZE == 1
+		.prioritirize = true,
+	#else
+		.prioritirize = false,
+	#endif
+	},
+#endif
+#ifdef CONFIG_WIFI_AP_2_ENABLE 
+	{
+		.ssid = CONFIG_WIFI_SSID_2,
+		.password = CONFIG_WIFI_PASSWORD_2,
+	#if CONFIG_WIFI_PRIORITIRIZE == 2
+		.prioritirize = true,
+	#else
+		.prioritirize = false,
+	#endif
+	},
+#endif
+#ifdef CONFIG_WIFI_AP_3_ENABLE
+	{
+		.ssid = CONFIG_WIFI_SSID_3,
+		.password = CONFIG_WIFI_PASSWORD_3
+	#if CONFIG_WIFI_PRIORITIRIZE == 3
+		.prioritirize = true,
+	#else
+		.prioritirize = false,
+	#endif
+	},
+#endif
+};
 
 static void event_handler(void *arg, esp_event_base_t event_base,
 		int32_t event_id, void *event_data) {
@@ -142,6 +179,8 @@ void wifi_scan_init(void){
 #endif // NETWORK_USE_SCAN_LOOP
 }
 
+static bool check_connection_to_sta();
+
 void wifi_init_sta(void){
 	ESP_ERROR_CHECK(esp_wifi_stop());
 	esp_event_handler_instance_t instance_any_id;
@@ -157,7 +196,7 @@ void wifi_init_sta(void){
 							&event_handler,
 							NULL,
 							&instance_got_ip));
-	wifi_config_t wifi = { .sta = { .ssid = SSID, .password = PASS } };
+	wifi_config_t wifi = { .sta = { .ssid = CONFIG_WIFI_SSID_1, .password = CONFIG_WIFI_PASSWORD_1} };
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi));
 	ESP_ERROR_CHECK(esp_wifi_start());
@@ -178,6 +217,24 @@ void wifi_init_sta(void){
 	} else {
 		ESP_LOGE(TAG, "UNEXPECTED EVENT");
 	}
+}
+
+void wifi_priority_connect(void){
+	wifi_ap_t w_ap = {0};
+	for(int i = 0; i < 3; i++){
+		if(wifi_aps[i].prioritize){
+			w_ap = wifi_aps[i];
+		}
+	}	
+
+	wifi_config_t config = {0};
+	strncpy((char*)config.sta.ssid, w_ap.ssid, sizeof(config.sta.ssid) - 1);
+	config.sta.ssid[sizeof(config.sta.ssid) - 1] = '\0';
+
+	strncpy((char*)config.sta.password, w_ap.password, sizeof(config.sta.password) - 1);
+	config.sta.password[sizeof(config.sta.password) - 1] = '\0';
+
+	
 }
 
 void wifi_cleanup(void){

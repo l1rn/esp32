@@ -15,7 +15,7 @@
 #define API_KEY CONFIG_WEATHER_API_KEY
 #define CITY	CONFIG_WEATHER_CITY
 
-#define ANTMINER_IP CONFIG_ANTMINER_IP_2 
+
 #define MAX_HTTP_OUTPUT_BUFFER 2048
 
 #define MARKET_API_KEY CONFIG_COIN_MARKET_API_KEY 
@@ -115,11 +115,10 @@ void get_weather_15hours(weather_response_t forecasts[], int max_forecasts){
 	free(response.data);
 }
 
-void get_miner_info(miner_response_t *miner_data){
+void get_miner_info(miner_response_t *miner_data, char *antminer_ip){
 	http_response_t data = { .data = NULL, .size = 0 };
 	char url[256];
-	snprintf(url, sizeof(url), "http://root:root@%s/cgi-bin/stats.cgi", 
-			ANTMINER_IP);
+	snprintf(url, sizeof(url), "http://root:root@%s/cgi-bin/stats.cgi", antminer_ip);
 	esp_http_client_config_t config = {
 		.url = url,
 		.event_handler = http_event_handler,
@@ -142,7 +141,8 @@ void get_miner_info(miner_response_t *miner_data){
 	esp_http_client_cleanup(client);
 }
 
-void get_bitcoin_price(char *result){
+char *get_bitcoin_price(void){
+	static char result[24];
 	http_response_t response = { .data = NULL, .size = 0 };
 	esp_http_client_config_t config = {
 		.url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BTC&convert=USD",
@@ -164,4 +164,5 @@ void get_bitcoin_price(char *result){
 	}
 
 	esp_http_client_cleanup(client);
+	return result;
 }

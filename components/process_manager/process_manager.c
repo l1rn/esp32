@@ -15,6 +15,12 @@
 
 #define LED_PIN 2
 
+#define CORE0 0
+#define CORE1 ((CONFIG_FREERTOS_NUMBER_OF_CORES > 1) ? 1 : tskNO_AFFINITY)
+
+#define ANTMINER_IP_1 CONFIG_ANTMINER_IP_1
+#define ANTMINER_IP_2 CONFIg_ANTMINER_IP_2
+
 static const char *TAG = "PROCESS_MANAGER";
 
 void gpio_init(void){
@@ -56,19 +62,16 @@ void main_loop(void){
 	wifi_init_sta();
 	gpio_set_level(LED_PIN, 1);
 	wifi_ntp_start();
-	mqtt_antminer_start();
-	u32 display_timer = 0;
 	u32 antminer_timer = 0;
-	u32 bitcoin_timer = 0;
-
 	oled_clear();
 	while(1){
 		oled_draw_time(get_current_time_str());
 		if(++antminer_timer >= 10) {
 //			get_miner_info();
 
-			miner_response_t d = get_miner_data();
-			oled_draw_miner_info(d);
+			miner_response_t m = {0};
+			get_miner_info(&m, ANTMINER_IP_1);
+			oled_draw_miner_info(m, "1111");
 			antminer_timer = 0;
 		}
 
