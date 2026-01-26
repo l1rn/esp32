@@ -36,5 +36,6 @@ void oled_draw_string_buffered(const char *str, uint8_t x, uint8_t y);
 void oled_draw_update(void);
 
 void oled_draw_digit(char d, uint8_t x, uint8_t y);
+void oled_draw_weather(void);
 
 #endif // I2C_DISPLAY_H

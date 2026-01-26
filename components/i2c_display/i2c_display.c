@@ -386,10 +386,12 @@ void oled_draw_weather(void){
 	snprintf(temperature, sizeof(temperature), "tp: %d~C (%d~C)", w.temp, w.feels_like);
 	snprintf(dt, sizeof(dt), "dt: %d", w.dt);
 	snprintf(wind, sizeof(wind), "wd: %f m/s", w.wind_speed);
+
+	ESP_LOGI(TAG, "tp: %d (%d); wd: %f ; dt: %d", 
+			w.temp, w.feels_like, w.wind_speed, w.dt);
 	oled_draw_string_buffered(temperature, 0, 16);
 	oled_draw_string_buffered(wind, 0, 28);
 	oled_draw_string_buffered(dt, 0, 40);
-	oled_draw_string_buffered(result, 0, 52);
 	oled_draw_update();
 
 }

@@ -69,6 +69,8 @@ weather_response_t get_weather_current(void){
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	esp_err_t res = esp_http_client_perform(client);
 	if(res == ESP_OK) {
+		ESP_LOGI(TAG, "HTTP Status code = 200");
+		ESP_LOGI(TAG, "RAW DATA - %s", response.data);
 		weather_response_t w = parse_single_forecast(response.data);
 		weather = w;
 	}
