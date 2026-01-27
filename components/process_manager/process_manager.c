@@ -69,7 +69,13 @@ void main_loop(void){
 		if(++antminer_timer >= 10) {
 //			get_miner_info();
 
-			oled_draw_weather();
+//			oled_draw_weather();
+			weather_response_t w = get_weather_current();
+			miner_response_t m = {0};
+			get_miner_info(ANTMINER_IP_1, &m);
+			ESP_LOGI(TAG, "rate: %d", m.rate_avg);
+			oled_draw_miner_info(m, "1111");
+			antminer_timer = 0;
 		}
 
 
