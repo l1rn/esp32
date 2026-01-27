@@ -128,7 +128,7 @@ void wifi_init(void) {
 	
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 	ESP_ERROR_CHECK(esp_wifi_start());
-	c_print(LGBL_WHT, "Wifi initialized\n");
+	ESP_LOGI(TAG, "Wifi initialized\n");
 }
 
 void wifi_scan_single_time(u16 ap_count, u16 number, wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE]){

@@ -145,8 +145,10 @@ void get_weather_15hours(weather_response_t forecasts[], int max_forecasts){
 	free(response.data);
 }
 
-void get_miner_info(char *antminer_ip, miner_response_t *miner_info){
+miner_response_t get_miner_info(char *antminer_ip){
+	miner_response_t m = {0};
 	http_response_t data = { .data = NULL, .size = 0 };
+
 	char url[256];
 	snprintf(url, sizeof(url), "http://root:root@%s/cgi-bin/stats.cgi", antminer_ip);
 	esp_http_client_config_t config = {
@@ -161,26 +163,15 @@ void get_miner_info(char *antminer_ip, miner_response_t *miner_info){
 	esp_http_client_set_header(client, "Accept", "application/json");
 	
 	esp_err_t err = esp_http_client_prepare(client);
-	if(err == ESP_FAIL) {
-		ESP_LOGI(TAG, "The request to miner can't go further because it fails on auth");
-		return;
-	}
 	err = esp_http_client_perform(client);
 	int status = esp_http_client_get_status_code(client); 
 
 	if(err == ESP_OK && status == 200){
-		ESP_LOGI(TAG, "http md5 digest auth status = 200, content_length = %d",
-				esp_http_client_get_content_length(client));
-		c_print(RED, "RESPONSE DATA SIZE: %d", data.size);
-		parse_antminer_json(data.data,miner_info);
-	} else if (err == ESP_OK && status == 401) {
-		ESP_LOGI(TAG, "first request for authorizing, status code = 401");
-		ESP_LOGI(TAG, "response data: %s", data.data);
-	} else {
-		ESP_LOGE(TAG, "Error performing http request: %s", esp_err_to_name(err));
-	}
+		parse_antminer_json(data.data, &m);
+	} 
 
 	esp_http_client_cleanup(client);
+	return m;
 }
 
 char *get_bitcoin_price(void){

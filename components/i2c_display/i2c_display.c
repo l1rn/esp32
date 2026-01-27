@@ -45,7 +45,7 @@ esp_err_t i2c_init(void) {
 		.scl_io_num = SCL_IO,
 		.sda_pullup_en = GPIO_PULLUP_ENABLE,
 		.scl_pullup_en = GPIO_PULLUP_ENABLE,
-		.master.clk_speed = 200000
+		.master.clk_speed = 400000
 	};
 	
 	esp_err_t ret = i2c_param_config(0, &conf);
@@ -76,9 +76,7 @@ char *i2c_scan(){
 		esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 50);
 		i2c_cmd_link_delete(cmd);
 		if(ret == ESP_OK){
-			printf("Found: 0x%02X\n", addr);
 			if(addr == 0x3C || addr == 0x3D) {
-				printf("- (OLED display (sdd1306))\n");
 				snprintf(result, sizeof(result), "the device has been found: 0x%02X", addr);
 				return result;
 			}
@@ -145,9 +143,7 @@ esp_err_t oled_init(void){
 	oled_cmd(0x3F);
 
 	oled_cmd(0xD3);
-	oled_cmd(0x00);
-
-	oled_cmd(0x40);
+	oled_cmd(0x00); oled_cmd(0x40);
 	
 	oled_cmd(0x8D);
 	oled_cmd(0x14);
