@@ -9,6 +9,8 @@ sdkonfig*
 sdkconfig.defaults*
 dependencies.lock
 managed_components/
+wifi_configs/
+*.json
 
 *.swp
 *.swo

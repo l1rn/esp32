@@ -24,7 +24,14 @@
 #define SCAN_WIFI 0
 #define TASK_WIFI_DONE_BIT (1 << 0)
 
+#define SECOND 	1000
+#define MINUTE 	SECOND * 60
+#define HOUR 	MINUTE * 60
+#define DAY 	HOUR * 24
+
 EventGroupHandle_t xEventGroup;
+
+wifi_config_t connection_config;
 
 static const char *TAG = "PROCESS_MANAGER";
 char *bitcoin_price = "0";
@@ -37,7 +44,7 @@ void weather_task(void *pvParameters){
 
 void bitcoin_price_task(void *pvParameters){
 	for(;;){
-		vTaskDelay(20000 / portTICK_PERIOD_MS);
+		vTaskDelay(1000 * 60 * 5 / portTICK_PERIOD_MS);
 		if(*bitcoin_price == '0'){
 			xEventGroupWaitBits(xEventGroup, TASK_WIFI_DONE_BIT, pdTRUE, pdTRUE, portMAX_DELAY);
 			bitcoin_price = get_bitcoin_price();
@@ -75,7 +82,7 @@ void ntp_setup(void){
 }
 
 void wifi_setup_task(void *pvParameters){
-	wifi_init_sta();
+	wifi_init_sta(connection_config);
 
 	if(!wifi_is_connected())
 		vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -100,22 +107,11 @@ void wifi_setup_task(void *pvParameters){
 void supervisor_task(void *pvParameters){
 }
 
-void gpio_init(void){
+void app_configure(void) {
 	gpio_reset_pin(LED_PIN);
 	gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
 	gpio_set_level(LED_PIN, 0);
-}
 
-void wifi_process(void){
-	wifi_init_sta();
-#ifdef SCAN_WIFI
-	wifi_scan_init();	
-#endif
-}
-
-void display_process(void){
-
-	gpio_init();
 	i2c_procedure();
 
 	if(oled_init() != ESP_OK){
@@ -123,7 +119,10 @@ void display_process(void){
 		return;
 	}
 
+	wifi_configure();
+	wifi_scan_array();
 
+	connection_config = wifi_get_priority();
 }
 
 void main_loop(void){
@@ -146,7 +145,6 @@ void main_loop(void){
 			CORE0
 	);
 }
-
 
 void project_cleanup(void){
 	wifi_cleanup();

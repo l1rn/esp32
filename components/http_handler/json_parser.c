@@ -1,9 +1,88 @@
 #include "json_parser.h"
+#include "wifi.h"
 #include "esp_log.h"
 #include <stdio.h>
 #include <string.h>
 
 static const char *TAG = "JSON_PARSER";
+
+int parse_wifi_json(const char *root, wifi_ap_t *aps){
+	cJSON *json = cJSON_Parse(root);
+	if(!json){
+		ESP_LOGE(TAG, "Failed to parse json");
+		return -1;
+	}
+
+	cJSON *size = cJSON_GetObjectItem(json, "size");
+	cJSON *data = cJSON_GetObjectItem(json, "data");
+
+	if(cJSON_IsNumber(size) && cJSON_IsArray(data)){
+		int array_size = cJSON_GetArraySize(data);
+		wifi_ap_t t = {0};
+		for(int i = 0; i < array_size; i++){
+			cJSON *main = cJSON_GetArrayItem(data, i);
+			cJSON *ssid = cJSON_GetObjectItem(main, "ssid");
+			cJSON *password = cJSON_GetObjectItem(main, "password");
+			cJSON *priority = cJSON_GetObjectItem(main, "priority");
+
+			if(cJSON_IsString(ssid) && cJSON_IsString(password) && cJSON_IsBool(priority)){
+				strcpy(t.ssid, ssid->valuestring);
+				strcpy(t.password, password->valuestring);
+				t.priority = cJSON_IsTrue(priority);
+			}
+			
+			aps[i] = t;
+		}
+	}
+}
+
+int parse_wifi_json_file(const char *filename, wifi_ap_t *aps){
+	esp_vfs_spiffs_conf_t conf = {
+		.base_path = "/spiffs",
+		.partition_label = NULL,
+		.max_files = 5,
+		.format_if_mount_failed = true,
+	};
+
+	ESP_ERROR_CHECK(esp_vfs_spiffs_register(&conf));
+
+	char full_path[64];
+	snprintf(full_path, sizeof(full_path), "/spiffs/%s", filename);
+
+	FILE *file = fopen(full_path, "r");
+	if(!file){
+		ESP_LOGE(TAG, "Failed to open the file in read-mode");
+		return -1;
+	}
+
+	fseek(file, 0, SEEK_END);
+	long size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	
+	if(size <= 0){
+		ESP_LOGE(TAG, "File is empty");
+		fclose(file);
+		
+		return -1;
+	}
+
+	char *buffer = malloc(size + 1);
+	if(!buffer){
+		ESP_LOGE(TAG, "Failed to allocate memory for buffer");
+		fclose(file);
+		return -1;
+	}
+
+	fread(buffer, 1, size, file);
+	buffer[size] = '\0';
+
+	fclose(file);
+	esp_vfs_spiffs_unregister(NULL);
+	parse_wifi_json(buffer, aps);
+	free(buffer);
+
+	return 0;
+}
 
 int parse_antminer_json(const char *root, miner_response_t *data){
 	cJSON *json = cJSON_Parse(root);
@@ -175,5 +254,3 @@ int parse_weather_forecast_string(char *data, weather_response_t forecasts[], in
 	cJSON_Delete(json);
 	return fc_count;
 }
-
-

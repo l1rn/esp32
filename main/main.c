@@ -15,7 +15,7 @@
 static const char *TAG = "MAIN";
 
 void app_main(void) {
-	display_process();
+	app_configure();
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
 	main_loop();
 }
