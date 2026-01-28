@@ -22,10 +22,45 @@
 #define ANTMINER_IP_2 CONFIG_ANTMINER_IP_2
 
 #define SCAN_WIFI 0
+#define TASK_WIFI_DONE_BIT (1 << 0)
+
+EventGroupHandle_t xEventGroup;
 
 static const char *TAG = "PROCESS_MANAGER";
+char *bitcoin_price = "0";
 
-void ntp_task(void *pvParameters){
+void weather_task(void *pvParameters){
+	for(;;){
+	
+	}
+}
+
+void bitcoin_price_task(void *pvParameters){
+	for(;;){
+		vTaskDelay(20000 / portTICK_PERIOD_MS);
+		if(*bitcoin_price == '0'){
+			xEventGroupWaitBits(xEventGroup, TASK_WIFI_DONE_BIT, pdTRUE, pdTRUE, portMAX_DELAY);
+			bitcoin_price = get_bitcoin_price();
+			ESP_LOGI(TAG, "%s", bitcoin_price);
+			
+			xEventGroupClearBits(xEventGroup, TASK_WIFI_DONE_BIT);
+		}
+		else {
+			bitcoin_price = get_bitcoin_price();
+			ESP_LOGI(TAG, "%s", bitcoin_price);
+		}
+	}
+}
+
+void miner_task(void *pvParameters){
+	for(;;){
+		miner_response_t m = get_miner_info(ANTMINER_IP_1);
+		oled_draw_miner_info(m, bitcoin_price);
+		vTaskDelay(30000 / portTICK_PERIOD_MS);
+	}
+}
+
+void ntp_setup(void){
 	init_ntp_time();
 	int timeout = 0;
 	while(!is_time_synced() && timeout < 10){
@@ -39,33 +74,18 @@ void ntp_task(void *pvParameters){
 	}
 }
 
-
-void weather_task(void *pvParameters){
-	for(;;){
-
-	}
-}
-
-void miner_task(void *pvParameters){
-	for(;;){
-		miner_response_t m = get_miner_info(ANTMINER_IP_1);
-		oled_draw_miner_info(m, "1111");
-		vTaskDelay(10000 / portTICK_PERIOD_MS);
-	}
-}
-
-
 void wifi_setup_task(void *pvParameters){
 	wifi_init_sta();
 
 	if(!wifi_is_connected())
 		vTaskDelay(500 / portTICK_PERIOD_MS);
-	ESP_LOGI(TAG, "WiFi is connected");
 
 	gpio_set_level(LED_PIN, 1);
+	xEventGroupSetBits(xEventGroup, TASK_WIFI_DONE_BIT);
+	ntp_setup();
 
-	xTaskCreate(ntp_task, "ntp", 4096, NULL, 5, NULL);
-	xTaskCreate(miner_task, "miner", 4096, NULL, 5, NULL);
+	xTaskCreate(miner_task, "miner", 8192, NULL, 5, NULL);
+	xTaskCreate(bitcoin_price_task, "btc", 8192, NULL, 5, NULL);
 	//	xTaskCreate(weather_task, "weather", 4096, NULL, 5, NULL);
 	for(;;){
 		if(is_time_synced())
@@ -93,9 +113,8 @@ void wifi_process(void){
 #endif
 }
 
+void display_process(void){
 
-
-void main_loop(void){
 	gpio_init();
 	i2c_procedure();
 
@@ -104,13 +123,23 @@ void main_loop(void){
 		return;
 	}
 
-	wifi_init();
-		
+
+}
+
+void main_loop(void){
 	oled_clear();
+
+	if(xEventGroup == NULL){
+		xEventGroup = xEventGroupCreate();
+		if(xEventGroup == NULL) {
+			ESP_LOGE(TAG, "Failed to create event group");
+			return;
+		}
+	}
 	xTaskCreatePinnedToCore(
 			wifi_setup_task,
 			"wifi_setup",
-			4096, 
+			32768, 
 			NULL,
 			1,
 			NULL,

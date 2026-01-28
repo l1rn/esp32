@@ -12,6 +12,8 @@
 #define SDA_IO	21
 #define OLED_ADDR 0x3C
 
+#define I2C_SCAN_OLED 1
+
 static uint8_t display_buffer[1024];
 
 static const char *TAG = "OLED_DISPLAY";
@@ -102,8 +104,10 @@ void i2c_procedure(void){
 		return;
 	} 	
 
+#ifdef I2C_SCAN_OLED
 	char *scan_result = i2c_scan(); 
 	ESP_LOGI(TAG, "Device status: %s", scan_result);	
+#endif
 }
 
 static void oled_cmd(uint8_t cmd_t){

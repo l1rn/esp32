@@ -11,7 +11,6 @@ int parse_antminer_json(const char *root, miner_response_t *data){
 		ESP_LOGE(TAG, "JSON parse error\n");
 		return -1;
 	}
-	ESP_LOGI(TAG, "%s", cJSON_Print(json));
 
 	if(json != NULL){
 		cJSON *status = cJSON_GetObjectItem(json, "STATUS");
