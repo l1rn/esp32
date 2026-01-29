@@ -1,5 +1,5 @@
 #include "json_parser.h"
-#include "wifi.h"
+#include "esp_spiffs.h"
 #include "esp_log.h"
 #include <stdio.h>
 #include <string.h>
@@ -18,28 +18,40 @@ int parse_wifi_json(const char *root, wifi_ap_t *aps){
 
 	if(cJSON_IsNumber(size) && cJSON_IsArray(data)){
 		int array_size = cJSON_GetArraySize(data);
-		wifi_ap_t t = {0};
 		for(int i = 0; i < array_size; i++){
+			wifi_ap_t t = {0};
+
 			cJSON *main = cJSON_GetArrayItem(data, i);
 			cJSON *ssid = cJSON_GetObjectItem(main, "ssid");
 			cJSON *password = cJSON_GetObjectItem(main, "password");
 			cJSON *priority = cJSON_GetObjectItem(main, "priority");
 
 			if(cJSON_IsString(ssid) && cJSON_IsString(password) && cJSON_IsBool(priority)){
-				strcpy(t.ssid, ssid->valuestring);
-				strcpy(t.password, password->valuestring);
+				if(ssid && ssid->valuestring){
+					strlcpy(t.ssid, ssid->valuestring, sizeof(t.ssid));
+				} else {
+					t.ssid[0] = '\0';
+				}
+				
+				if(password && password->valuestring){
+					strlcpy(t.password, password->valuestring, sizeof(t.password));
+				} else {
+					t.password[0] = '\0';
+				}
 				t.priority = cJSON_IsTrue(priority);
 			}
 			
 			aps[i] = t;
 		}
 	}
+	cJSON_Delete(json);
+	return 0;
 }
 
 int parse_wifi_json_file(const char *filename, wifi_ap_t *aps){
 	esp_vfs_spiffs_conf_t conf = {
-		.base_path = "/spiffs",
-		.partition_label = NULL,
+		.base_path = "/www",
+		.partition_label = "www",
 		.max_files = 5,
 		.format_if_mount_failed = true,
 	};

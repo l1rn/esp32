@@ -82,10 +82,6 @@ void ntp_setup(void){
 }
 
 void wifi_setup_task(void *pvParameters){
-	wifi_init_sta(connection_config);
-
-	if(!wifi_is_connected())
-		vTaskDelay(500 / portTICK_PERIOD_MS);
 
 	gpio_set_level(LED_PIN, 1);
 	xEventGroupSetBits(xEventGroup, TASK_WIFI_DONE_BIT);
@@ -119,10 +115,7 @@ void app_configure(void) {
 		return;
 	}
 
-	wifi_configure();
-	wifi_scan_array();
-
-	connection_config = wifi_get_priority();
+	wifi_init_sta();
 }
 
 void main_loop(void){
@@ -135,15 +128,8 @@ void main_loop(void){
 			return;
 		}
 	}
-	xTaskCreatePinnedToCore(
-			wifi_setup_task,
-			"wifi_setup",
-			32768, 
-			NULL,
-			1,
-			NULL,
-			CORE0
-	);
+
+	xTaskCreate(wifi_setup_task, "wifi", 32000, NULL, 5, NULL);
 }
 
 void project_cleanup(void){

@@ -94,11 +94,11 @@ void wifi_configure(void) {
 }
 
 void wifi_setup_aps(void){
-	parse_wifi_json_file("wifi_aps", &wifi_aps);
+	parse_wifi_json_file("wifi_aps", wifi_aps);
 }
 
-esp_err_t wifi_scan_ap(const char *specific_ssid, u16 max_results, 
-	wifi_ap_record_t *ap_records, u16 *ap_count){
+esp_err_t wifi_scan_ap(const char *specific_ssid, uint16_t max_results, 
+	wifi_ap_record_t *ap_records, uint16_t *ap_count){
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));	
@@ -106,7 +106,7 @@ esp_err_t wifi_scan_ap(const char *specific_ssid, u16 max_results,
 	ESP_ERROR_CHECK(esp_wifi_start());
 
 	wifi_scan_config_t scan_config = {
-		.ssid = (u8*)specific_ssid,
+		.ssid = (uint8_t*)specific_ssid,
 		.scan_type = WIFI_SCAN_TYPE_ACTIVE,
 		.scan_time = {
 			.active = {
@@ -119,7 +119,7 @@ esp_err_t wifi_scan_ap(const char *specific_ssid, u16 max_results,
 	ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
 	ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(ap_count));
 
-	u16 number_to_copy = (*ap_count > max_results) ? max_results : *ap_count; 
+	uint16_t number_to_copy = (*ap_count > max_results) ? max_results : *ap_count; 
 
 	ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number_to_copy, ap_records));
 	
@@ -136,7 +136,7 @@ esp_err_t wifi_scan_ap(const char *specific_ssid, u16 max_results,
 void wifi_scan_array(void){
 #ifdef NETWORK_USE_SCAN_LOOP
 #else 
-	u16 ap_count = 0;
+	uint16_t ap_count = 0;
 	static wifi_ap_record_t ap_records[DEFAULT_SCAN_LIST_SIZE]; 
 	for(int i = 0; i < 3; i++){
 		memset(ap_records, 0, sizeof(ap_records));
@@ -153,8 +153,22 @@ void wifi_scan_array(void){
 #endif // NETWORK_USE_SCAN_LOOP
 }
 
-void wifi_init_sta(wifi_config_t wifi){
+void wifi_init_sta(){
         s_wifi_event_group = xEventGroupCreate();
+
+	esp_err_t ret = nvs_flash_init();
+	if(ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(ret);
+
+	s_wifi_event_group = xEventGroupCreate();
+
+	ESP_ERROR_CHECK(esp_netif_init());
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+	ESP_LOGI(TAG, "Wifi is configured\n");
 
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -174,6 +188,7 @@ void wifi_init_sta(wifi_config_t wifi){
 							&instance_got_ip));
 
 
+	wifi_config_t wifi = { .sta = { .ssid = SSID, .password = PASS  }};
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi));
 	ESP_ERROR_CHECK(esp_wifi_start());
@@ -197,6 +212,8 @@ void wifi_init_sta(wifi_config_t wifi){
 }
 
 wifi_config_t wifi_get_priority(void){
+	wifi_aps[0] = (wifi_ap_t){ .ssid = SSID, .password = PASS };
+
 	wifi_ap_t w_ap = {0};
 	for(int i = 0; i < 3; i++){
 			w_ap = wifi_aps[0];

@@ -6,8 +6,8 @@
 #include "esp_wifi.h"
 
 typedef struct {
-	const char *ssid;
-	const char *password;
+	char *ssid;
+	char *password;
 	int16_t rssi;
 	bool available;
 	bool priority;
@@ -19,7 +19,7 @@ void wifi_cleanup(void);
 void wifi_scan_array(void);
 
 wifi_config_t wifi_get_priority(void);
-void wifi_init_sta(wifi_config_t config);
+void wifi_init_sta();
 bool wifi_is_connected(void);
 
 #endif // WIFI_MODULE_H

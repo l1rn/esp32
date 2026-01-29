@@ -2,6 +2,7 @@
 #define JSON_PARSER_H
 
 #include "cJSON.h"
+#include "wifi.h"
 
 #define MAX_CHAINS 3
 #define MAX_FANS 4
