@@ -2,6 +2,7 @@
 #define JSON_PARSER_H
 
 #include "cJSON.h"
+#include "wifi.h"
 
 #define MAX_CHAINS 3
 #define MAX_FANS 4
@@ -45,6 +46,8 @@ int parse_weather_forecast_string(char *data, weather_response_t forecasts[], in
 
 int parse_antminer_json(const char *root, miner_response_t *data);
 int parse_bitcoin_price(char *data, char *result);
+
+int parse_wifi_json_file(const char *filename, wifi_ap_t *aps);
 
 /* GENERICS */
 #define parse_single_forecast(x) _Generic((x), \

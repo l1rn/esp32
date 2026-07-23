@@ -5,4 +5,6 @@ idf_component_register(
 		nvs_flash
 		esp_wifi
 		fonts
+	PRIV_REQUIRES
+		http_handler
 )
