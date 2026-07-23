@@ -251,14 +251,23 @@ void wifi_priority_connect(void){
 
 	strncpy((char*)config.sta.password, w_ap.password, sizeof(config.sta.password) - 1);
 	config.sta.password[sizeof(config.sta.password) - 1] = '\0';
-
-	
 }
 
 void wifi_cleanup(void){
 	esp_wifi_disconnect();
 	esp_wifi_stop();
 	esp_wifi_deinit();
+}
+
+void check_rssi(void){
+	wifi_ap_record_t ap_info;
+	if(esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK){
+		char res[24];
+		get_wifi_strength(ap_info.rssi, res);
+		ESP_LOGI(TAG, "Signal Strength: %s", res);
+	} else {
+		ESP_LOGI(TAG, "Failed to get RSSI from the current STA");
+	}
 }
 
 bool wifi_is_connected(void){

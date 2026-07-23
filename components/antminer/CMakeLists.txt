@@ -4,7 +4,6 @@ idf_component_register(
 	INCLUDE_DIRS
 		"."
 	REQUIRES 
-		cJSON 
 		i2c_display 
 		http_handler
 		mqtt		
