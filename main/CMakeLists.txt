@@ -3,12 +3,16 @@ idf_component_register(
 		"main.c"
 	INCLUDE_DIRS "."
 	REQUIRES
-		antminer
-		http_handler 
-		wifi
-		ntp_time
-		i2c_display
-		fonts
-		process_manager
-		esp_rom 
+		esp_adc
+	PRIV_REQUIRES
+		esp_driver_gpio
+	#	REQUIRES
+	#		antminer
+	#		http_handler 
+	#		wifi
+	#		ntp_time
+	#		i2c_display
+	#		fonts
+	#		process_manager
+	#		esp_rom 
 )

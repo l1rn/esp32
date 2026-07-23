@@ -9,5 +9,6 @@ idf_component_register(
 		antminer
 		fonts
 		http_handler
-	PRIV_REQUIRES esp_driver_gpio
+	PRIV_REQUIRES 
+		esp_driver_gpio
 )

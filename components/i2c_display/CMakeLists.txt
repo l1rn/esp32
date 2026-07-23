@@ -1,6 +1,7 @@
 idf_component_register(
 	SRCS
 		"i2c_display.c"
+		"temp.c"
 	INCLUDE_DIRS
 		"."
 	REQUIRES
@@ -11,4 +12,5 @@ idf_component_register(
 		esp_driver_i2c
 	PRIV_REQUIRES
 		esp_driver_gpio
+		esp_adc
 )

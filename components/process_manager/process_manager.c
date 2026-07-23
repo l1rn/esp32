@@ -1,6 +1,5 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -11,6 +10,7 @@
 #include "wifi.h"
 #include "ntp_time.h"
 #include "i2c_display.h"
+#include "temp.h"
 #include "antminer.h"
 
 #define LED_PIN 2
@@ -23,6 +23,7 @@
 
 #define SCAN_WIFI 0
 #define TASK_WIFI_DONE_BIT (1 << 0)
+
 
 EventGroupHandle_t xEventGroup;
 
@@ -76,6 +77,7 @@ void ntp_setup(void){
 
 void wifi_setup_task(void *pvParameters){
 	wifi_init_sta();
+	temp_init();
 
 	if(!wifi_is_connected())
 		vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -86,10 +88,12 @@ void wifi_setup_task(void *pvParameters){
 
 	xTaskCreate(miner_task, "miner", 8192, NULL, 5, NULL);
 	xTaskCreate(bitcoin_price_task, "btc", 8192, NULL, 5, NULL);
+	xTaskCreate(temp_task, "temp", 4096, NULL, 5, NULL);
 	//	xTaskCreate(weather_task, "weather", 4096, NULL, 5, NULL);
 	for(;;){
 		if(is_time_synced())
 			oled_draw_time(get_current_time_str());
+
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	}
 
@@ -152,4 +156,5 @@ void project_cleanup(void){
 	wifi_cleanup();
 	oled_clear();
 	i2c_cleanup();
+	temp_cleanup();
 }
