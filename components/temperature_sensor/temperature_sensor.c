@@ -61,6 +61,44 @@ void init_temperature_config(void){
 	adc_oneshot_config_channel(adc1_handle, ANALOG_ADC_CHAN, &cfg);
 }
 
+io_status_t get_io_status(void){
+	if(gpio_get_level(DIGITAL_IN_PIN) == 0){
+		return IO_DIGITAL_DISCONNECTED;
+	}
+
+	int raw_val = 0;
+
+	esp_err_t err = adc_oneshot_read(adc1_handle, ANALOG_ADC_CHAN, &raw_val);
+	if (err != ESP_OK){
+		return IO_ADC_READ_FAILED;
+	}
+
+	if(raw_val < 50 || raw_val > 4094){ 
+		return IO_ADC_OUT_OF_BOUNDS;
+	}
+
+	return IO_OK;
+}
+
+void print_error(io_status_t status){
+	switch (status){
+		case IO_OK:
+			ESP_LOGI(TAG, "Everything's ok!");
+		case IO_DIGITAL_DISCONNECTED:
+			ESP_LOGI(TAG, "Digital pin is not connected!");
+			break;
+		case IO_ADC_READ_FAILED:
+			ESP_LOGI(TAG, "Failed to read ADC channel");
+			break;
+		case IO_ADC_OUT_OF_BOUNDS:
+			ESP_LOGI(TAG, "adc value is out of bounds");
+			break;
+		default:
+			ESP_LOGI(TAG, "Unexpected error");
+			break;
+	}
+}
+
 void print_temperature(void){
 	if(adc1_handle == NULL) {
 		ESP_LOGW(TAG, "init_temperature_config() wasn't executed!");

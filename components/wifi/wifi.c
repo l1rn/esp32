@@ -12,7 +12,6 @@
 #include "lwip/sys.h"
 
 #include "wifi.h"
-#include "http_handler.h"
 
 #define MAX_RETRY CONFIG_WIFI_MAX_RETRY 
 
