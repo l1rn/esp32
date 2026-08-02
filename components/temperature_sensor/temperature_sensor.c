@@ -12,8 +12,8 @@
 // GPIO 34
 #define ANALOG_ADC_CHAN ADC_CHANNEL_6
 
-#define R_FIXED 1050000.0f
-#define R0 100000.0f
+#define R_FIXED 100000.0f
+#define R0 10000.0f
 #define T0 298.15f
 #define B_COEFFICIENT 3950.0f
 
@@ -80,10 +80,11 @@ io_status_t get_io_status(void){
 	return IO_OK;
 }
 
-void print_error(io_status_t status){
+void print_io_error(io_status_t status){
 	switch (status){
 		case IO_OK:
 			ESP_LOGI(TAG, "Everything's ok!");
+			break;
 		case IO_DIGITAL_DISCONNECTED:
 			ESP_LOGI(TAG, "Digital pin is not connected!");
 			break;

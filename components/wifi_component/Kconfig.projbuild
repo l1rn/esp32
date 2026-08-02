@@ -1,0 +1,57 @@
+menu "Wifi Config"
+	menu "SoftAP Configuration"
+		config ESP_WIFI_AP_SSID
+			string "Wifi AP SSID"
+			default "RouteRich_2_test"
+		config ESP_WIFI_AP_PASSWORD
+			string "Wifi AP Password"
+			default "Aleks1977"
+		config ESP_WIFI_AP_CHANNEL
+			int "Wifi AP Channel"
+			range 1 14
+			default 9
+		config ESP_MAX_STA_CONN_AP
+			int "Maximum STA connections"
+			default 8
+	endmenu
+	menu "STA Configuration"
+		config ESP_STA_SSID
+			string "STA SSID"
+			default "RouteRich_2"
+		config ESP_STA_PASSWORD
+			string "STA Password"
+			default "Aleks1977"
+		config ESP_STA_CHANNEL
+			int "STA Channel"
+			default 0
+		config ESP_STA_MAX_RETRY
+			int "Maximum retry"
+			default 5
+	endmenu
+	choice ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD
+		prompt "WiFi Scan auth mode threshold"
+		default ESP_WIFI_AUTH_WPA2_PSK
+		help
+			The weakest authmode to accept in the scan mode.
+			This value defaults to ESP_WIFI_AUTH_WPA2_PSK in case password is present
+			and ESP_WIFI_AUTH_OPEN is used. Please select ESP_WIFI_AUTH_WEP / ESP_WIFI_AUTH_WPA_PSK
+			in case AP is operating in WEP / WPA mode.
+
+		config ESP_WIFI_AUTH_OPEN
+			bool "OPEN"
+		config ESP_WIFI_AUTH_WEP
+			bool "WEP"
+		config ESP_WIFI_AUTH_WPA_PSK
+			bool "WPA PSK"
+		config ESP_WIFI_AUTH_WPA2_PSK
+			bool "WPA2 PSK"
+		config ESP_WIFI_AUTH_WPA_WPA2_PSK
+			bool "WPA/WPA2 PSK"
+		config ESP_WIFI_AUTH_WPA3_PSK
+			bool "WPA3 PSK"
+		config ESP_WIFI_AUTH_WPA2_WPA3_PSK
+			bool "WPA2/WPA3 PSK"
+		config ESP_WIFI_AUTH_WAPI_PSK
+			bool "WAPI PSK"
+	endchoice
+endmenu

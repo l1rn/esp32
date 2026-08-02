@@ -2,8 +2,7 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.22)
 
-set(COMPONENTS main process_manager temperature_sensor wifi http_server spiffs)
-
+set(COMPONENTS common_types main process_manager temperature_sensor wifi_component http_server spiffs)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(blink)
 

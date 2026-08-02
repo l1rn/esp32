@@ -6,7 +6,6 @@ idf_component_register(
 		"."
 	REQUIRES
 		http_handler
-		fonts
 		ntp_time
 		driver
 		esp_driver_i2c

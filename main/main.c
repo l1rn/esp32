@@ -4,5 +4,4 @@ static const char *TAG = "MAIN";
 
 void app_main(void) {
 	main_loop();
-	project_cleanup();
 }

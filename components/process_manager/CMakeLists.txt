@@ -3,9 +3,11 @@ idf_component_register(
 	INCLUDE_DIRS "."
 	REQUIRES 
 	#		driver
-		wifi
+		wifi_component
 		temperature_sensor
 		http_server
+		ota
+		esp_wifi
 #		ntp_time
 #		i2c_display
 #		antminer
@@ -14,4 +16,6 @@ idf_component_register(
 	PRIV_REQUIRES 
 #		esp_driver_gpio
 		esp_http_server
+	EMBED_FILES
+		"firmware.bin"
 )

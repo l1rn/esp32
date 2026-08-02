@@ -12,6 +12,6 @@ void init_temperature_config(void);
 void print_temperature(void);
 float get_temperature(void);
 io_status_t get_io_status(void);
-void print_error(io_status_t status);
+void print_io_error(io_status_t status);
 
 #endif // TEMPERATURE_SENSOR_H

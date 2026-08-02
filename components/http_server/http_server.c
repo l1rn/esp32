@@ -2,35 +2,31 @@
 #include "esp_err.h"
 #include <stdio.h>
 #include "http_server.h"
-#include "temperature_sensor.h"
+#include "system_info.h"
 
 static const char *TAG = "HTTP_SERVER";
+static char log_history[100][64];
 
 static esp_err_t root_get_handler(httpd_req_t *req) {
 	httpd_resp_set_type(req, "text/html");
-	httpd_resp_send(req, "<h1>Hello from esp32!</h1>", HTTPD_RESP_USE_STRLEN);
+	char uptime[64];
+	int uptime_len = get_uptime(uptime, sizeof(uptime));
+	char info[256];
+	int info_len = get_system_info(info, sizeof(info));
+	char wifi_info[256];
+	int wifi_len = get_sta_info(wifi_info, sizeof(wifi_info));
+	
+	httpd_resp_send_chunk(req, uptime, uptime_len);
+	httpd_resp_send_chunk(req, info, info_len);
+	httpd_resp_send_chunk(req, wifi_info, wifi_len);
+	httpd_resp_send_chunk(req, NULL, 0);
 	return ESP_OK;
 }
-
 
 static const httpd_uri_t root = {
 	.uri = "/",
 	.method = HTTP_GET,
 	.handler = root_get_handler
-};
-
-static esp_err_t temp_sensor_get_handler(httpd_req_t *req){
-	httpd_resp_set_type(req, "application/json");
-	char buffer[32];
-	snprintf(buffer, sizeof(buffer), "{%.2f}", get_temperature());
-	httpd_resp_send(req, "", HTTPD_RESP_USE_STRLEN);
-	return ESP_OK;
-}
-
-static const httpd_uri_t temperature_sensor = {
-	.uri = "/temperature-sensor",
-	.method = HTTP_GET,
-	.handler = temp_sensor_get_handler
 };
 
 httpd_handle_t start_server(void){
