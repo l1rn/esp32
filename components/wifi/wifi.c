@@ -253,8 +253,6 @@ void wifi_cleanup(void){
 	esp_wifi_deinit();
 }
 
-
-
 bool wifi_is_connected(void){
 	wifi_ap_record_t ap;
 	return esp_wifi_sta_get_ap_info(&ap) == ESP_OK;

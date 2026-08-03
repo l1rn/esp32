@@ -23,7 +23,7 @@ menu "Wifi Config"
 			default "Aleks1977"
 		config ESP_STA_CHANNEL
 			int "STA Channel"
-			default 0
+			default 6
 		config ESP_STA_MAX_RETRY
 			int "Maximum retry"
 			default 5

@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *TAG = "ESP_NOW_OTA_SERVER";
+static const char *TAG = "ESP_NOW_OTA_CLIENT";
 
 static u8 target_mac[6];
 static QueueHandle_t ack_queue = NULL;
@@ -18,19 +18,39 @@ typedef struct {
 	bool status_ok;
 } ack_response_t;
 
+static void send_ack(const u8 *dest_mac, u32 chunk_idx){
+	ota_packet_t ack_pkt = {
+		.type = OTA_CMD_ACK,
+		.chunk_idx = chunk_idx
+	};
+
+	if(!esp_now_is_peer_exist(dest_mac)){
+		esp_now_peer_info_t peer = {};
+		memcpy(peer.peer_addr, dest_mac, 6);
+		peer.channel = CONFIG_ESP_PEER_CHANNEL;
+		peer.encrypt = false;
+		esp_now_add_peer(&peer);
+	}
+
+	esp_now_send(dest_mac, (u8 *)&ack_pkt, sizeof(u8) + sizeof(u32));
+}
+
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
-static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u8 *data, int len)
+static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u8 *data, int len){
+	u8 *src_mac = (u8 *) recv_info->src_addr;
+	int rssi = recv_info->rx_ctrl->rssi;
 #else
-static void espnow_recv_cb(const u8 *mac_addr, const u8 *data, int len)
+static void espnow_recv_cb(const u8 *mac_addr, const u8 *data, int len){
+	u8 *src_mac = (u8 *) mac_addr;
+	int rssi = 0
 #endif
-{
-	if(len == sizeof(ota_packet_t)){
+	if(len >= sizeof(ota_packet_t) - OTA_CHUNK_SIZE){
 		ota_packet_t *pkt = (ota_packet_t *)data;
-		if(pkt->type == OTA_CMD_ACK && ack_queue != NULL){
-			ack_response_t resp = {
-				.acked_chunk = pkt->chunk_idx,
-				.status_ok = true
-			};
+		if(pkt->type == OTA_CMD_ACK){
+			ESP_LOGI(TAG_CLIENT, "Chunk %lu/%lu received (Length: %d, Signal RSSI: %d dBm)",
+                        pkt->chunk_idx, pkt->total_chunks, pkt->data_len, rssi);
+
+			send_ack(src_mac, pkt->chunk_idx);
 			xQueueSendFromISR(ack_queue, &resp, NULL);
 		}
 	}
@@ -45,6 +65,7 @@ esp_err_t espnow_ota_server_init(const u8 *recv_mac){
 		return ESP_FAIL;
 	}
 
+	ESP_ERROR_CHECK(esp_now_init());
 	ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
 	
 	esp_now_peer_info_t peer = {};

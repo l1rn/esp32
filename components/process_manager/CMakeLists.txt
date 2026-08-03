@@ -17,5 +17,5 @@ idf_component_register(
 #		esp_driver_gpio
 		esp_http_server
 	EMBED_FILES
-		"firmware.bin"
+		"blink.bin"
 )

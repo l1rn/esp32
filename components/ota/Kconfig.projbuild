@@ -1,0 +1,6 @@
+menu "OTA Config"
+	config ESP_PEER_CHANNEL
+		int "ESP peer channel"
+		range 1 14
+		default 6
+endmenu

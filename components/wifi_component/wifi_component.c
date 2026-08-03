@@ -216,12 +216,61 @@ void start_softap_sta(void){
  }
 
 void start_wifi_sta(){
-	nvs_flash_init();
+	esp_err_t ret = nvs_flash_init();
+	if(ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND){
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(ret);
 
-	esp_netif_init();
-	esp_event_loop_create_default();
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	esp_wifi_init(&cfg);
-	esp_wifi_set_mode(WIFI_MODE_STA);
-	esp_wifi_start();
+	ESP_ERROR_CHECK(esp_netif_init());
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+ 	s_wifi_event_group = xEventGroupCreate();
+
+	esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
+	(void)sta_netif;
+
+	wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK(esp_wifi_init(&config));
+	esp_event_handler_instance_t inst_any_id;
+	esp_event_handler_instance_t inst_got_ip;
+
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+				ESP_EVENT_ANY_ID,
+				&wifi_event_handler,
+				NULL, &inst_any_id));
+	
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+				IP_EVENT_STA_GOT_IP,
+				&wifi_event_handler,
+				NULL, &inst_got_ip));
+
+	wifi_config_t wifi = { .sta = { .ssid = ESP_STA_SSID, .password = ESP_STA_PASSWORD, .channel = ESP_STA_CHANNEL } };
+	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi));
+	ESP_ERROR_CHECK(esp_wifi_start());
+
+	ESP_LOGI(TAG_STA, "start_wifi_sta finished");
+	EventBits_t bits = xEventGroupWaitBits(
+			s_wifi_event_group,
+			WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+			pdFALSE, pdFALSE,
+			portMAX_DELAY
+	);
+
+
+	if(bits & WIFI_CONNECTED_BIT){
+		ESP_LOGI(TAG_STA, "connected to ap SSID: %s password: %s");
+	} else if (bits & WIFI_FAIL_BIT){
+		ESP_LOGI(TAG_STA, "failed to connect to ap SSID: %s password: %s");
+	} else {
+		ESP_LOGI(TAG_STA, "UNEXPECTED EVENT");
+	}
+}
+
+void wifi_cleanup(void){
+	esp_wifi_disconnect();
+	esp_wifi_stop();
+	esp_wifi_deinit();
 }

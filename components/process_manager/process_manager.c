@@ -12,15 +12,15 @@
 
 static const char *TAG = "PROCESS_MANAGER";
 
-extern const unsigned char firmware_bin_start[] asm("_binary_firmware_bin_start");
-extern const unsigned char firmware_bin_end[] asm("_binary_firmware_bin_end");
+extern const unsigned char firmware_bin_start[] asm("_binary_blink_bin_start");
+extern const unsigned char firmware_bin_end[] asm("_binary_blink_bin_end");
 
 static uint8_t receiver_mac[6] = {0xB4, 0xBF, 0xE9, 0x0D, 0x5C, 0x9C};
 
 void main_loop(void){
 //	start_softap_sta();
 	start_wifi_sta();
-	espnow_ota_server_init(receiver_mac);
+//	espnow_ota_server_init(receiver_mac);
 
 	size_t bin_size = firmware_bin_end - firmware_bin_start;
 	espnow_ota_server_start_transfer(firmware_bin_start, bin_size);
