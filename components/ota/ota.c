@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "common_types.h"
+#include "espnow_ota_server.h"
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -70,9 +71,57 @@ static const httpd_uri_t ota_firmware = {
 	.handler = ota_post_handler,
 };
 
+static esp_err_t ota_post_espnow_handler(httpd_req_t *req){
+	size_t bin_size = req->content_len;
+	if(bin_size == 0){
+		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Zero size firmware");
+		return ESP_FAIL;
+	}
+	u8 *bin_buf = malloc(bin_size);
+	if (!bin_buf) {
+		ESP_LOGE(TAG, "Failed to allocate %d bytes for ESP-NOW OTA", bin_size);
+		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of Memory");
+		return ESP_FAIL;
+	}
+
+	size_t total_read = 0;
+	
+	while(total_read < bin_size){
+		int recv_len = httpd_req_recv(req, (char *)(bin_buf + total_read), bin_size - total_read);
+		if(recv_len < 0){
+			if(recv_len == HTTPD_SOCK_ERR_TIMEOUT){
+				continue;
+			}
+			ESP_LOGE(TAG, "HTTP recv failed at %d/%d bytes", total_read, bin_size);
+			free(bin_buf);
+			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "HTTP Recv Error");
+			return ESP_FAIL;
+		}
+		total_read += recv_len;
+	}
+	ESP_LOGI(TAG, "Successfully received %d bytes via HTTP. Starting ESP-NOW transfer...", total_read);
+
+	esp_err_t err = espnow_ota_server_start_transfer(bin_buf, bin_size);
+	free(bin_buf);
+
+	if(err == ESP_OK){
+		httpd_resp_sendstr(req, "OTA Sent Successfully over ESP-NOW");
+	} else {
+		httpd_resp_send_500(req);
+	}
+	return ESP_OK;
+}
+
+static const httpd_uri_t ota_espnow_firmware = {
+	.uri = "/ota-over-en",
+	.method = HTTP_POST,
+	.handler = ota_post_espnow_handler
+};
+
 esp_err_t register_ota_uri(httpd_handle_t server){
 	if(server != NULL){
 		httpd_register_uri_handler(server, &ota_firmware);
+		httpd_register_uri_handler(server, &ota_espnow_firmware);
 		return ESP_OK;
 	}
 	return ESP_FAIL;

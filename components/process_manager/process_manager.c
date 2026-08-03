@@ -22,16 +22,20 @@ void main_loop(void){
 	start_wifi_sta();
 //	espnow_ota_server_init(receiver_mac);
 
-	size_t bin_size = firmware_bin_end - firmware_bin_start;
-	espnow_ota_server_start_transfer(firmware_bin_start, bin_size);
-
 	init_temperature_config();
-	httpd_handle_t server = start_server();
-	esp_err_t ret = register_ota_uri(server);	
-
-	printf("heeloo");
-	if (ret != ESP_OK){
-		ESP_LOGI(TAG, "Failed to run ota");
+	espnow_ota_server_init(receiver_mac);
+	bool is_connected = false;
+	while(1){
+		if(wifi_is_connected()){
+			if(!is_connected){
+				httpd_handle_t server = start_server();
+				esp_err_t ret = register_ota_uri(server);	
+				is_connected = true;
+			}
+		} else {
+			is_connected = false;
+		}
+		vTaskDelay(pdMS_TO_TICKS(2500));
 	}
 }
 
