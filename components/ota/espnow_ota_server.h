@@ -8,6 +8,8 @@
 typedef uint8_t u8;
 typedef uint32_t u32;
 typedef uint16_t u16;
+typedef uint32_t u32;
+
 typedef enum {
 	OTA_CMD_START = 1,
 	OTA_CMD_DATA = 2,
@@ -26,5 +28,6 @@ typedef struct __attribute__((packed)) {
 
 esp_err_t espnow_ota_server_init(const u8 *receiver_mac);
 esp_err_t espnow_ota_server_start_transfer(const u8 *firmware_bin, size_t bin_size);
+esp_err_t espnow_ota_server_send_chunk(u32 chunk_idx, u32 total_chunks, const u8 *data, size_t len);
 
 #endif // ESPNOW_OTA_SERVER_H

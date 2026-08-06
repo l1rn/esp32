@@ -77,38 +77,43 @@ static esp_err_t ota_post_espnow_handler(httpd_req_t *req){
 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Zero size firmware");
 		return ESP_FAIL;
 	}
-	u8 *bin_buf = malloc(bin_size);
-	if (!bin_buf) {
-		ESP_LOGE(TAG, "Failed to allocate %d bytes for ESP-NOW OTA", bin_size);
-		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of Memory");
-		return ESP_FAIL;
-	}
 
-	size_t total_read = 0;
+	u32 total_chunks = (bin_size + OTA_CHUNK_SIZE - 1) / OTA_CHUNK_SIZE;
+	u8 chunk_buf[OTA_CHUNK_SIZE];
+
+	size_t remaining = bin_size;
+	u32 current_chunk = 0;
+
+	ESP_LOGI(TAG, "Starting streaming ESP-NOW OTA: %d bytes (%lu chunks)", bin_size, total_chunks);
 	
-	while(total_read < bin_size){
-		int recv_len = httpd_req_recv(req, (char *)(bin_buf + total_read), bin_size - total_read);
-		if(recv_len < 0){
-			if(recv_len == HTTPD_SOCK_ERR_TIMEOUT){
-				continue;
+	while(remaining > 0){
+		size_t to_read = MIN(remaining, OTA_CHUNK_SIZE);
+		size_t chunk_bytes_read = 0;
+		while(chunk_bytes_read < to_read){
+			int recv_len = httpd_req_recv(req, (char *)(chunk_buf + chunk_bytes_read), to_read - chunk_bytes_read);
+			if(recv_len <= 0){
+				if(recv_len == HTTPD_SOCK_ERR_TIMEOUT) continue;
+				ESP_LOGE(TAG, "HTTP Recv failed during streaming");
+				httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "HTTP Recv Error");
+				return ESP_FAIL;
 			}
-			ESP_LOGE(TAG, "HTTP recv failed at %d/%d bytes", total_read, bin_size);
-			free(bin_buf);
-			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "HTTP Recv Error");
+			chunk_bytes_read += recv_len;
+		}
+		esp_err_t err = espnow_ota_server_send_chunk(current_chunk, total_chunks, chunk_buf, chunk_bytes_read);
+		if(err != ESP_OK){
+			ESP_LOGE(TAG, "Failed sending chunk %lu over ESP-NOW", current_chunk);
+			httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "ESP-NOW Transfer Failed");
 			return ESP_FAIL;
 		}
-		total_read += recv_len;
-	}
-	ESP_LOGI(TAG, "Successfully received %d bytes via HTTP. Starting ESP-NOW transfer...", total_read);
 
-	esp_err_t err = espnow_ota_server_start_transfer(bin_buf, bin_size);
-	free(bin_buf);
-
-	if(err == ESP_OK){
-		httpd_resp_sendstr(req, "OTA Sent Successfully over ESP-NOW");
-	} else {
-		httpd_resp_send_500(req);
+		remaining -= chunk_bytes_read;
+		current_chunk++;
+		if (current_chunk % 50 == 0 || remaining == 0) {
+			ESP_LOGI(TAG, "ESP-NOW OTA Progress: %lu/%lu chunks", current_chunk, total_chunks);
+		}
 	}
+	ESP_LOGI(TAG, "ESP-NOW OTA complete!");
+	httpd_resp_sendstr(req, "OTA Sent Successfully over ESP-NOW");	
 	return ESP_OK;
 }
 

@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "esp_rom_crc.h"
 #include "esp_now.h"
+#include "esp_wifi.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -20,12 +21,12 @@ typedef struct {
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u8 *data, int len){
-	uint8_t *src_mac = (uint8_t *)recv_info->src_addr;
+	u8 *src_mac = (uint8_t *)recv_info->src_addr;
 #else
 static void espnow_recv_cb(const u8 *mac_addr, const u8 *data, int len){
-	uint8_t *src_mac = (uint8_t *)mac_addr;
+	u8 *src_mac = (uint8_t *)mac_addr;
 #endif
-	if(len == sizeof(ota_packet_t)){
+	if(len >= (sizeof(u8) + sizeof(u32))){
 		ota_packet_t *pkt = (ota_packet_t *)data;
 		if(pkt->type == OTA_CMD_ACK && ack_queue != NULL){
 			ack_response_t resp = {
@@ -48,6 +49,10 @@ esp_err_t espnow_ota_server_init(const u8 *recv_mac){
 
 	ESP_ERROR_CHECK(esp_now_init());
 	ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
+
+	u8 primary_ch = CONFIG_ESP_PEER_CHANNEL;
+	wifi_second_chan_t second_ch;
+	esp_wifi_get_channel(&primary_ch, &second_ch);
 	
 	esp_now_peer_info_t peer = {};
 	memcpy(peer.peer_addr, recv_mac, 6);
@@ -116,4 +121,42 @@ esp_err_t espnow_ota_server_start_transfer(const u8 *firmware_bin, size_t bin_si
 	}
 	ESP_LOGI(TAG, "Firmware transfer completed successfully!");
 	return ESP_OK;
+}
+
+esp_err_t espnow_ota_server_send_chunk(u32 chunk_idx, u32 total_chunks, const u8 *data, size_t len){
+	ota_packet_t tx_pkt = {0};
+
+	tx_pkt.type = OTA_CMD_DATA;
+	tx_pkt.chunk_idx = chunk_idx;
+	tx_pkt.total_chunks = total_chunks;
+	tx_pkt.data_len = len;
+	memcpy(tx_pkt.payload, data, len);
+	tx_pkt.crc32 = esp_rom_crc32_le(0, tx_pkt.payload, len);
+
+	bool chunk_sent = false;
+	u8 retries = 0;
+
+	size_t send_size = sizeof(ota_packet_t) - OTA_CHUNK_SIZE + len;
+
+	while(!chunk_sent && retries < 5){
+		xQueueReset(ack_queue);
+		esp_err_t res = esp_now_send(target_mac, (u8 *)&tx_pkt, send_size);
+
+		if(res != ESP_OK){
+			ESP_LOGE(TAG, "ESP-NOW Send error on chunk %lu: %s", 
+					chunk_idx, esp_err_to_name(res));
+		}
+		
+		ack_response_t ack_resp;
+		if(xQueueReceive(ack_queue, &ack_resp, pdMS_TO_TICKS(200)) == pdTRUE){
+			if(ack_resp.acked_chunk == chunk_idx && ack_resp.status_ok){
+				chunk_sent = true;
+			}
+		} else {
+			retries++;
+			ESP_LOGW(TAG, "ACK chunk timeout %lu (retry %d/5)", chunk_idx, retries+1);
+		}
+	}
+
+	return chunk_sent ? ESP_OK : ESP_FAIL;
 }
